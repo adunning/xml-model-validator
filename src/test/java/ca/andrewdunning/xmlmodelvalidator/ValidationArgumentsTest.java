@@ -1,0 +1,82 @@
+package ca.andrewdunning.xmlmodelvalidator;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+final class ValidationArgumentsTest {
+    @TempDir
+    Path temporaryDirectory;
+
+    @Test
+    void resolvesDirectoryRecursivelyForXmlFilesOnly() throws Exception {
+        Files.writeString(temporaryDirectory.resolve("a.xml"), "<root/>", StandardCharsets.UTF_8);
+        Files.writeString(temporaryDirectory.resolve("b.txt"), "ignore", StandardCharsets.UTF_8);
+        Files.createDirectories(temporaryDirectory.resolve("nested"));
+        Files.writeString(temporaryDirectory.resolve("nested/c.xml"), "<root/>", StandardCharsets.UTF_8);
+
+        ValidationArguments arguments = ValidationArguments.parse(new String[] {
+            "--directory", temporaryDirectory.toString()
+        });
+
+        List<Path> files = arguments.resolveFiles();
+
+        assertEquals(
+            List.of(
+                temporaryDirectory.resolve("a.xml").toAbsolutePath().normalize(),
+                temporaryDirectory.resolve("nested/c.xml").toAbsolutePath().normalize()
+            ),
+            files
+        );
+    }
+
+    @Test
+    void prefersFileListOverDirectory() throws Exception {
+        Path listed = temporaryDirectory.resolve("listed.xml");
+        Files.writeString(listed, "<root/>", StandardCharsets.UTF_8);
+        Files.writeString(temporaryDirectory.resolve("other.xml"), "<root/>", StandardCharsets.UTF_8);
+        Path fileList = temporaryDirectory.resolve("files.txt");
+        Files.writeString(fileList, listed.toString() + "\n", StandardCharsets.UTF_8);
+
+        ValidationArguments arguments = ValidationArguments.parse(new String[] {
+            "--directory", temporaryDirectory.toString(),
+            "--file-list", fileList.toString()
+        });
+
+        List<Path> files = arguments.resolveFiles();
+
+        assertEquals(List.of(listed.toAbsolutePath().normalize()), files);
+    }
+
+    @Test
+    void sortsExplicitFiles() {
+        Path first = temporaryDirectory.resolve("a.xml");
+        Path second = temporaryDirectory.resolve("z.xml");
+
+        ValidationArguments arguments = ValidationArguments.parse(new String[] {
+            second.toString(),
+            first.toString()
+        });
+
+        List<Path> files;
+        try {
+            files = arguments.resolveFiles();
+        } catch (IOException exception) {
+            throw new IllegalStateException(exception);
+        }
+
+        assertEquals(
+            List.of(first.toAbsolutePath().normalize(), second.toAbsolutePath().normalize()),
+            files
+        );
+        assertTrue(arguments.schemaAliasesFile().isAbsolute());
+    }
+}

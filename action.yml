@@ -1,0 +1,71 @@
+name: XML Model Validator
+description: Validate XML using xml-model processing instructions with Relax NG and Schematron
+author: Andrew Dunning
+branding:
+  icon: check-circle
+  color: blue
+inputs:
+  files:
+    description: Space-separated list of XML files to validate
+    required: false
+  file_list:
+    description: Path to a newline-delimited file list
+    required: false
+  directory:
+    description: Directory containing XML files to validate recursively
+    required: false
+  changed_only:
+    description: Validate only XML files changed by the current push or pull request
+    required: false
+    default: "false"
+  jobs:
+    description: Number of parallel workers to use (0 = auto)
+    required: false
+    default: "0"
+  schema_aliases:
+    description: Optional path to a schema alias TSV file
+    required: false
+  version:
+    description: Optional release tag to download; defaults to the action ref or latest release
+    required: false
+  fail_fast:
+    description: Stop after the first file that fails validation
+    required: false
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - name: Restore Validator Cache
+      uses: actions/cache/restore@v5
+      with:
+        path: ~/.cache/xml-model-validator
+        key: xml-model-validator-${{ runner.os }}-${{ inputs.version || github.action_ref || 'latest' }}-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: |
+          xml-model-validator-${{ runner.os }}-${{ inputs.version || github.action_ref || 'latest' }}-
+          xml-model-validator-${{ runner.os }}-
+    - name: Validate XML
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        XML_MODEL_VALIDATOR_WORKSPACE: ${{ github.workspace }}
+        XML_MODEL_VALIDATOR_CACHE_HOME: ~/.cache/xml-model-validator
+        XML_MODEL_VALIDATOR_INPUT_FILES: ${{ inputs.files }}
+        XML_MODEL_VALIDATOR_INPUT_FILE_LIST: ${{ inputs.file_list }}
+        XML_MODEL_VALIDATOR_INPUT_DIRECTORY: ${{ inputs.directory }}
+        XML_MODEL_VALIDATOR_INPUT_CHANGED_ONLY: ${{ inputs.changed_only }}
+        XML_MODEL_VALIDATOR_INPUT_JOBS: ${{ inputs.jobs }}
+        XML_MODEL_VALIDATOR_INPUT_SCHEMA_ALIASES: ${{ inputs.schema_aliases }}
+        XML_MODEL_VALIDATOR_INPUT_VERSION: ${{ inputs.version }}
+        XML_MODEL_VALIDATOR_INPUT_FAIL_FAST: ${{ inputs.fail_fast }}
+        XML_MODEL_VALIDATOR_ACTION_REPOSITORY: ${{ github.action_repository }}
+        XML_MODEL_VALIDATOR_ACTION_REF: ${{ github.action_ref }}
+        XML_MODEL_VALIDATOR_GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        bash "${{ github.action_path }}/entrypoint.sh"
+    - name: Save Validator Cache
+      if: always()
+      uses: actions/cache/save@v5
+      with:
+        path: ~/.cache/xml-model-validator
+        key: xml-model-validator-${{ runner.os }}-${{ inputs.version || github.action_ref || 'latest' }}-${{ github.run_id }}-${{ github.run_attempt }}
