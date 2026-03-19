@@ -39,6 +39,13 @@ Minimal usage:
 - uses: adunning/xml-model-validator@v1
 ```
 
+Version tag semantics:
+
+- `@v1` is a floating major tag that tracks the latest `1.x.y` release.
+- `@v1.0.0` is an immutable exact release tag.
+- This repository publishes releases from `vX.Y.Z` tags and then updates the
+  matching major tag (`vX`) automatically.
+
 Validate a directory recursively:
 
 ```yaml
@@ -193,8 +200,22 @@ shasum -a 256 -c xml-model-validator.jar.sha256
 ./mvnw -B verify
 ```
 
-4. Tag and push (`vX.Y.Z` or `X.Y.Z` are both accepted by release validation).
-5. Publish a GitHub Release from that tag.
+4. Tag and push a strict SemVer tag (`vX.Y.Z`):
 
-The release workflow validates version metadata, builds the project, and uploads
-the runnable jar and SHA-256 checksum as release assets.
+```bash
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push origin vX.Y.Z
+```
+
+5. The release workflow creates the GitHub Release automatically from that tag,
+  and then force-updates the major tag (`vX`) to the same commit.
+
+  Example: pushing `v1.0.0` publishes the release and updates `v1`.
+
+6. Do not manually create or push `v1`, `v2`, etc.; those tags are managed by
+  the release workflow to stay synchronized with the latest patch/minor in each
+  major line.
+
+The release workflow validates version metadata, verifies the jar runtime
+version, builds the project, and publishes the runnable jar plus SHA-256
+checksum as GitHub Release assets.

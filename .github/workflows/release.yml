@@ -1,12 +1,12 @@
 name: Release
 
 on:
-  release:
-    types:
-      - published
+  push:
+    tags:
+      - "v*.*.*"
 
 concurrency:
-  group: release-${{ github.event.release.tag_name }}
+  group: release-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -17,16 +17,21 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.release.tag_name }}
 
       - name: Validate Release Version Metadata
         shell: bash
         run: |
           set -euo pipefail
 
-          tag="${{ github.event.release.tag_name }}"
-          # Accept both v1.2.3 and 1.2.3 tags.
+          tag="${GITHUB_REF_NAME}"
+
+          # Require strict semantic version tags prefixed with v (e.g., v1.2.3).
+          if [[ ! "${tag}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release tag format: ${tag}"
+            echo "Expected tag format: vMAJOR.MINOR.PATCH (for example: v1.2.3)"
+            exit 1
+          fi
+
           release_version="${tag#v}"
 
           pom_version="$(sed -n 's|^[[:space:]]*<version>\([^<]*\)</version>[[:space:]]*$|\1|p' pom.xml | head -n1)"
@@ -65,7 +70,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          expected_version="${{ github.event.release.tag_name }}"
+          expected_version="${GITHUB_REF_NAME}"
           expected_version="${expected_version#v}"
 
           actual_output="$(java -jar target/xml-model-validator.jar --version)"
@@ -96,7 +101,28 @@ jobs:
         run: |
           set -euo pipefail
 
-          gh release upload "${{ github.event.release.tag_name }}" \
+          tag="${GITHUB_REF_NAME}"
+
+          gh release create "${tag}" \
             dist/xml-model-validator.jar \
             dist/xml-model-validator.jar.sha256 \
-            --clobber
+            --title "${tag}" \
+            --generate-notes \
+            --verify-tag
+
+      - name: Update Major Version Tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tag="${GITHUB_REF_NAME}"
+          major_tag="v${tag#v}"
+          major_tag="${major_tag%%.*}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag -f "${major_tag}" "${tag}"
+          git push origin "refs/tags/${major_tag}" --force
+
+          echo "Updated ${major_tag} to point at ${tag}"
