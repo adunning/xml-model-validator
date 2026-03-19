@@ -15,6 +15,34 @@ jobs:
         with:
           ref: ${{ github.event.release.tag_name }}
 
+      - name: Validate Release Version Metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tag="${{ github.event.release.tag_name }}"
+          # Accept both v1.2.3 and 1.2.3 tags.
+          release_version="${tag#v}"
+
+          pom_version="$(sed -n 's|^[[:space:]]*<version>\([^<]*\)</version>[[:space:]]*$|\1|p' pom.xml | head -n1)"
+          cff_version="$(sed -n 's|^[[:space:]]*version:[[:space:]]*"\([^"]*\)"[[:space:]]*$|\1|p' CITATION.cff | head -n1)"
+
+          if [[ -z "${pom_version}" || -z "${cff_version}" ]]; then
+            echo "Unable to read version from pom.xml or CITATION.cff"
+            exit 1
+          fi
+
+          if [[ "${release_version}" != "${pom_version}" || "${release_version}" != "${cff_version}" ]]; then
+            echo "Release metadata mismatch detected"
+            echo "tag=${tag}"
+            echo "normalized_tag=${release_version}"
+            echo "pom.xml version=${pom_version}"
+            echo "CITATION.cff version=${cff_version}"
+            exit 1
+          fi
+
+          echo "Release tag, pom.xml, and CITATION.cff versions are synchronized: ${release_version}"
+
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
