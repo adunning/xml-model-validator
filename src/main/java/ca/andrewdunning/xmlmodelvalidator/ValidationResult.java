@@ -1,6 +1,7 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
 import java.nio.file.Path;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 /**
@@ -14,7 +15,7 @@ final class ValidationResult {
     ValidationResult(Path file, boolean ok, List<ValidationIssue> issues) {
         this.file = file;
         this.ok = ok;
-        this.issues = List.copyOf(issues);
+        this.issues = List.copyOf(new LinkedHashSet<>(issues));
     }
 
     static ValidationResult failed(Path file, ValidationIssue issue) {

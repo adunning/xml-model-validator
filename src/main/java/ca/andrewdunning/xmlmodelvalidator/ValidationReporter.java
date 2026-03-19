@@ -11,7 +11,11 @@ final class ValidationReporter {
     private final boolean githubActions;
 
     ValidationReporter() {
-        this.githubActions = "true".equalsIgnoreCase(System.getenv("GITHUB_ACTIONS"));
+        this("true".equalsIgnoreCase(System.getenv("GITHUB_ACTIONS")));
+    }
+
+    ValidationReporter(boolean githubActions) {
+        this.githubActions = githubActions;
     }
 
     void emitStartup(List<java.nio.file.Path> files, int workers, boolean directoryMode) {
@@ -61,15 +65,16 @@ final class ValidationReporter {
     }
 
     private void emitIssue(ValidationIssue issue) {
+        if (githubActions) {
+            System.out.println(formatGithubAnnotation(issue));
+            return;
+        }
+
         String prefix = issue.warning() ? "WARNING" : "ERROR";
         String location = issue.line() != null
                 ? String.format("%s, line %d: ", ValidationSupport.relativize(issue.file()), issue.line())
                 : ValidationSupport.relativize(issue.file()) + ": ";
         System.err.printf("%s: %s%s%n", prefix, location, issue.message());
-
-        if (githubActions) {
-            System.out.println(formatGithubAnnotation(issue));
-        }
     }
 
     /**
@@ -93,10 +98,9 @@ final class ValidationReporter {
         }
         String level = issue.warning() ? "warning" : "error";
         return String.format(
-            "::%s %s::%s",
-            level,
-            String.join(",", props),
-            ValidationSupport.escapeMessage(issue.message())
-        );
+                "::%s %s::%s",
+                level,
+                String.join(",", props),
+                ValidationSupport.escapeMessage(issue.message()));
     }
 }

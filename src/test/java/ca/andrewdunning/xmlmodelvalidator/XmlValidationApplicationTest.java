@@ -2,6 +2,8 @@ package ca.andrewdunning.xmlmodelvalidator;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -14,9 +16,12 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@ResourceLock(Resources.SYSTEM_OUT)
+@ResourceLock(Resources.SYSTEM_ERR)
 final class XmlValidationApplicationTest {
     @TempDir
     Path temporaryDirectory;
@@ -66,20 +71,13 @@ final class XmlValidationApplicationTest {
                 validTwo.toString()
         });
         XmlValidationApplication application = createApplication(Map.of());
-        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
-        PrintStream originalErr = System.err;
+        List<Path> files = arguments.resolveFiles();
 
-        int exitCode;
-        try {
-            System.setErr(new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
-            exitCode = invokeRun(application, arguments, arguments.resolveFiles());
-        } finally {
-            System.setErr(originalErr);
-        }
+        List<ValidationResult> results = invokeValidateFiles(application, arguments, files, 1);
 
-        String stderr = stderrBuffer.toString(StandardCharsets.UTF_8);
-        assertEquals(1, exitCode);
-        assertTrue(stderr.contains("Validated 1 file(s): 0 OK, 1 failed"));
+        assertEquals(1, results.size());
+        assertFalse(results.get(0).ok());
+        assertEquals(invalid.toAbsolutePath().normalize(), results.get(0).file());
     }
 
     @Test
@@ -123,6 +121,21 @@ final class XmlValidationApplicationTest {
         Method run = XmlValidationApplication.class.getDeclaredMethod("run", ValidationArguments.class, List.class);
         run.setAccessible(true);
         return (Integer) run.invoke(application, arguments, files);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<ValidationResult> invokeValidateFiles(
+            XmlValidationApplication application,
+            ValidationArguments arguments,
+            List<Path> files,
+            int workers) throws Exception {
+        Method validateFiles = XmlValidationApplication.class.getDeclaredMethod(
+                "validateFiles",
+                ValidationArguments.class,
+                List.class,
+                int.class);
+        validateFiles.setAccessible(true);
+        return (List<ValidationResult>) validateFiles.invoke(application, arguments, files, workers);
     }
 
     private void writeRelaxNgSchema(String relativePath) throws IOException {
