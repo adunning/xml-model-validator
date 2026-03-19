@@ -13,7 +13,18 @@ import net.sf.saxon.s9api.XPathCompiler;
 import net.sf.saxon.s9api.XPathSelector;
 import net.sf.saxon.s9api.Xslt30Transformer;
 import net.sf.saxon.s9api.XsltExecutable;
+import org.xml.sax.InputSource;
+import org.xml.sax.ErrorHandler;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.DefaultHandler;
 
+import javax.xml.XMLConstants;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParserFactory;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -23,7 +34,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Validates a single XML file by applying supported {@code xml-model} declarations first and falling
+ * Validates a single XML file by applying supported {@code xml-model}
+ * declarations first and falling
  * back to XML Schema instance hints when no supported model is present.
  */
 final class XmlFileValidator {
@@ -51,11 +63,16 @@ final class XmlFileValidator {
     ValidationResult validate(Path file) {
         try {
             List<XmlModelEntry> entries = xmlModelParser.parse(file);
+            ValidationIssue wellFormednessIssue = validateWellFormedness(file);
+            if (wellFormednessIssue != null) {
+                return ValidationResult.failed(file, wellFormednessIssue);
+            }
             List<ResolvedSchema> relaxNgSchemas = resolveSchemas(entries, file, SchemaKind.RELAX_NG);
             List<ResolvedSchema> schematronSchemas = resolveSchemas(entries, file, SchemaKind.SCHEMATRON);
 
             if (relaxNgSchemas.isEmpty() && schematronSchemas.isEmpty()) {
-                // XSD hints are intentionally a fallback so xml-model stays the primary control surface.
+                // XSD hints are intentionally a fallback so xml-model stays the primary control
+                // surface.
                 List<String> xsdSchemaLocations = xmlSchemaHintParser.parse(file);
                 if (!xsdSchemaLocations.isEmpty()) {
                     List<ValidationIssue> issues = xsdValidator.validate(file, xsdSchemaLocations);
@@ -92,8 +109,62 @@ final class XmlFileValidator {
         }
     }
 
+    private ValidationIssue validateWellFormedness(Path file)
+            throws ParserConfigurationException, SAXException, java.io.IOException {
+        try (InputStream inputStream = Files.newInputStream(file)) {
+            XMLReader reader = createWellFormednessReader();
+            InputSource inputSource = new InputSource(inputStream);
+            inputSource.setSystemId(file.toUri().toString());
+            reader.parse(inputSource);
+            return null;
+        } catch (SAXParseException exception) {
+            Integer line = exception.getLineNumber() > 0 ? exception.getLineNumber() : null;
+            Integer column = exception.getColumnNumber() > 0 ? exception.getColumnNumber() : null;
+            return new ValidationIssue(file, exception.getMessage(), line, column, false);
+        }
+    }
+
+    private XMLReader createWellFormednessReader() throws ParserConfigurationException, SAXException {
+        SAXParserFactory factory = SAXParserFactory.newInstance();
+        factory.setNamespaceAware(true);
+        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        setFeature(factory, "http://xml.org/sax/features/external-general-entities", false);
+        setFeature(factory, "http://xml.org/sax/features/external-parameter-entities", false);
+        setFeature(factory, "http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+
+        XMLReader reader = factory.newSAXParser().getXMLReader();
+        reader.setContentHandler(new DefaultHandler());
+        reader.setErrorHandler(new WellFormednessErrorHandler());
+        return reader;
+    }
+
+    private void setFeature(SAXParserFactory factory, String feature, boolean value)
+            throws ParserConfigurationException, SAXException {
+        try {
+            factory.setFeature(feature, value);
+        } catch (ParserConfigurationException | SAXException ignored) {
+        }
+    }
+
+    private static final class WellFormednessErrorHandler implements ErrorHandler {
+        @Override
+        public void warning(SAXParseException exception) {
+        }
+
+        @Override
+        public void error(SAXParseException exception) throws SAXException {
+            throw exception;
+        }
+
+        @Override
+        public void fatalError(SAXParseException exception) throws SAXException {
+            throw exception;
+        }
+    }
+
     /**
-     * Resolves matching schemas once per file and phase combination so repeated xml-model entries do
+     * Resolves matching schemas once per file and phase combination so repeated
+     * xml-model entries do
      * not trigger duplicate validations.
      */
     private List<ResolvedSchema> resolveSchemas(List<XmlModelEntry> entries, Path file, SchemaKind schemaKind) {
@@ -136,7 +207,8 @@ final class XmlFileValidator {
     }
 
     /**
-     * Converts SchXslt SVRL output into validator issues with the best source locations Saxon can
+     * Converts SchXslt SVRL output into validator issues with the best source
+     * locations Saxon can
      * recover from the original document.
      */
     private List<ValidationIssue> parseSvrl(XdmNode svrl, XdmNode source, Path xmlFile) throws SaxonApiException {

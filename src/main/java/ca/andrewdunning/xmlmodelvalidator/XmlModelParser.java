@@ -1,9 +1,15 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
-import javax.xml.stream.XMLInputFactory;
-import javax.xml.stream.XMLStreamConstants;
-import javax.xml.stream.XMLStreamException;
-import javax.xml.stream.XMLStreamReader;
+import org.xml.sax.Attributes;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.DefaultHandler;
+
+import javax.xml.XMLConstants;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParserFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -16,7 +22,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Extracts {@code xml-model} processing instructions from an XML document without fully building a DOM.
+ * Extracts {@code xml-model} processing instructions from an XML document
+ * without fully building a DOM.
  */
 final class XmlModelParser {
     private static final Pattern XML_MODEL_ATTRIBUTE_PATTERN = Pattern.compile("(\\w+)\\s*=\\s*([\"'])(.*?)\\2");
@@ -25,35 +32,86 @@ final class XmlModelParser {
      * Returns xml-model declarations in document order.
      */
     List<XmlModelEntry> parse(Path file) throws IOException {
-        XMLInputFactory factory = XMLInputFactory.newFactory();
-        factory.setProperty(XMLInputFactory.SUPPORT_DTD, Boolean.FALSE);
-        factory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, Boolean.TRUE);
-
         List<XmlModelEntry> entries = new ArrayList<>();
         try (InputStream inputStream = Files.newInputStream(file)) {
-            XMLStreamReader reader = factory.createXMLStreamReader(inputStream);
-            while (reader.hasNext()) {
-                if (reader.next() == XMLStreamConstants.PROCESSING_INSTRUCTION
-                        && "xml-model".equals(reader.getPITarget())) {
-                    Map<String, String> attributes = new HashMap<>();
-                    Matcher attributeMatcher = XML_MODEL_ATTRIBUTE_PATTERN.matcher(reader.getPIData());
-                    while (attributeMatcher.find()) {
-                        attributes.put(attributeMatcher.group(1), attributeMatcher.group(3));
-                    }
-                    String href = attributes.get("href");
-                    if (href != null && !href.isBlank()) {
-                        entries.add(new XmlModelEntry(
-                                href,
-                                attributes.get("schematypens"),
-                                attributes.get("type"),
-                                attributes.get("phase")));
-                    }
-                }
-            }
-            reader.close();
+            XMLReader reader = createReader(entries);
+            InputSource inputSource = new InputSource(inputStream);
+            inputSource.setSystemId(file.toUri().toString());
+            reader.parse(inputSource);
             return entries;
-        } catch (XMLStreamException exception) {
+        } catch (StopParsingException ignored) {
+            return entries;
+        } catch (SAXParseException exception) {
+            throw new IOException(
+                    "Could not parse xml-model processing instructions from "
+                            + file
+                            + " at line "
+                            + exception.getLineNumber()
+                            + ", column "
+                            + exception.getColumnNumber(),
+                    exception);
+        } catch (ParserConfigurationException | SAXException exception) {
             throw new IOException("Could not parse xml-model processing instructions from " + file, exception);
         }
+    }
+
+    private XMLReader createReader(List<XmlModelEntry> entries) throws ParserConfigurationException, SAXException {
+        SAXParserFactory factory = SAXParserFactory.newInstance();
+        factory.setNamespaceAware(true);
+        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        setFeature(factory, "http://xml.org/sax/features/external-general-entities", false);
+        setFeature(factory, "http://xml.org/sax/features/external-parameter-entities", false);
+        setFeature(factory, "http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+
+        XMLReader reader = factory.newSAXParser().getXMLReader();
+        reader.setContentHandler(new XmlModelHandler(entries));
+        return reader;
+    }
+
+    private void setFeature(SAXParserFactory factory, String feature, boolean value)
+            throws ParserConfigurationException, SAXException {
+        try {
+            factory.setFeature(feature, value);
+        } catch (ParserConfigurationException | SAXException ignored) {
+        }
+    }
+
+    private static final class XmlModelHandler extends DefaultHandler {
+        private final List<XmlModelEntry> entries;
+
+        private XmlModelHandler(List<XmlModelEntry> entries) {
+            this.entries = entries;
+        }
+
+        @Override
+        public void processingInstruction(String target, String data) {
+            if (!"xml-model".equals(target)) {
+                return;
+            }
+
+            Map<String, String> attributes = new HashMap<>();
+            Matcher attributeMatcher = XML_MODEL_ATTRIBUTE_PATTERN.matcher(data);
+            while (attributeMatcher.find()) {
+                attributes.put(attributeMatcher.group(1), attributeMatcher.group(3));
+            }
+
+            String href = attributes.get("href");
+            if (href != null && !href.isBlank()) {
+                entries.add(new XmlModelEntry(
+                        href,
+                        attributes.get("schematypens"),
+                        attributes.get("type"),
+                        attributes.get("phase")));
+            }
+        }
+
+        @Override
+        public void startElement(String uri, String localName, String qName, Attributes attributes)
+                throws SAXException {
+            throw new StopParsingException();
+        }
+    }
+
+    private static final class StopParsingException extends SAXException {
     }
 }

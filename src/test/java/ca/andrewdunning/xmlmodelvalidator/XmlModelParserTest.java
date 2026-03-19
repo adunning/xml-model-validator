@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -33,10 +34,19 @@ final class XmlModelParserTest {
     }
 
     @Test
-    void throwsIOExceptionForMalformedXml() throws Exception {
+    void toleratesMalformedXmlAfterRootStart() throws Exception {
         Path xml = write("broken.xml", "<root><child></root>");
 
-        IOException exception = assertThrows(IOException.class, () -> new XmlModelParser().parse(xml));
+        List<XmlModelEntry> entries = assertDoesNotThrow(() -> new XmlModelParser().parse(xml));
+
+        assertTrue(entries.isEmpty());
+    }
+
+    @Test
+    void throwsIOExceptionForMalformedXmlBeforeRootStart() throws Exception {
+        Path malformedProlog = write("broken-prolog.xml", "<?xml-model href=\"schema.rng\"<root/>");
+
+        IOException exception = assertThrows(IOException.class, () -> new XmlModelParser().parse(malformedProlog));
 
         assertTrue(exception.getMessage().contains("Could not parse xml-model processing instructions"));
     }

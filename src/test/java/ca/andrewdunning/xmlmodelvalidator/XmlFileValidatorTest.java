@@ -9,7 +9,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class XmlFileValidatorTest {
@@ -146,6 +148,42 @@ final class XmlFileValidatorTest {
     assertFalse(result.ok(), "Expected embedded Schematron validation to fail");
     assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("root must contain an item")),
         "Expected the embedded Schematron assertion to run");
+  }
+
+  @Test
+  void reportsMalformedXmlUsingSchemaValidatorAfterReadingXmlModel() throws Exception {
+    write("schema.rng", """
+        <grammar xmlns="http://relaxng.org/ns/structure/1.0">
+          <start>
+            <element name="root">
+              <zeroOrMore>
+                <element name="child">
+                  <empty/>
+                </element>
+              </zeroOrMore>
+            </element>
+          </start>
+        </grammar>
+        """);
+    Path xml = write("document.xml", """
+        <?xml version="1.0"?>
+        <?xml-model href="schema.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+        <root><child></root>
+        """);
+
+    ValidationResult result = validator().validate(xml);
+
+    assertFalse(result.ok(), "Expected malformed XML to fail validation");
+    assertTrue(result.issues().stream().anyMatch(issue -> issue.message().toLowerCase().contains("mismatch")
+        || issue.message().toLowerCase().contains("must be terminated")
+        || issue.message().toLowerCase().contains("well-formed")),
+        "Expected a parser-level XML syntax error from schema validation");
+    assertTrue(result.issues().stream().anyMatch(issue -> issue.line() != null),
+        "Expected malformed XML diagnostics to include a source line");
+    assertTrue(result.issues().stream().noneMatch(issue -> issue.message().contains("Validation error:")),
+        "Expected malformed XML to be reported directly, not wrapped in a generic validation error");
+    assertEquals(1, result.issues().size(), "Expected malformed XML to stop further schema validation");
+    assertNotNull(result.issues().getFirst());
   }
 
   private XmlFileValidator validator() {

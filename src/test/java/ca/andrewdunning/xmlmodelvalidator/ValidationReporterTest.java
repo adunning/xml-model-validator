@@ -94,4 +94,26 @@ final class ValidationReporterTest {
         assertFalse(stderrText.contains("document.xml, line 8"));
         assertTrue(stderrText.contains("ERROR: 1 file(s) failed validation"));
     }
+
+    @Test
+    void formatsGithubErrorAnnotationForMalformedXml() {
+        ValidationIssue issue = new ValidationIssue(
+                Path.of("collections", "Digby", "MS_Digby_18.xml"),
+                "The element type \"origPlace\" must be terminated by the matching end-tag \"</origPlace>\".",
+                78,
+                21,
+                false);
+
+        String annotation = ValidationReporter.formatGithubAnnotation(issue);
+
+        assertTrue(annotation.startsWith("::error "));
+        assertTrue(annotation.contains("file=collections/Digby/MS_Digby_18.xml"));
+        assertTrue(annotation.contains("line=78"));
+        assertTrue(annotation.contains("endLine=78"));
+        assertTrue(annotation.contains("col=21"));
+        assertTrue(annotation.contains("endColumn=21"));
+        assertTrue(annotation.contains("title=XML Validation"));
+        assertTrue(annotation.endsWith(
+                "The element type \"origPlace\" must be terminated by the matching end-tag \"</origPlace>\"."));
+    }
 }
