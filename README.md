@@ -125,6 +125,10 @@ The built jar is cached in `~/.cache/xml-model-validator`, and cache keys are
 scoped to the action commit (`github.action_sha`) so updates automatically
 invalidate stale binaries.
 
+The action also caches Maven's local repository and wrapper directories under
+`~/.m2`, also keyed by `github.action_sha`, so dependency downloads are reused
+across runs of the same action revision.
+
 If you want schema downloads to persist across jobs, cache
 `~/.cache/xml-model-validator` in your workflow. The action also restores and
 saves that cache itself with `actions/cache@v5`.

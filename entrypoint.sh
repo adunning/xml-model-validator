@@ -9,6 +9,8 @@ JAR_CACHE_DIR="${XML_MODEL_VALIDATOR_CACHE_HOME}/jar"
 JAR_PATH="${JAR_CACHE_DIR}/xml-model-validator.jar"
 CHANGED_FILE_LIST="${RUNNER_TEMP}/xml-model-validator-changed-files.txt"
 
+mkdir -p "${HOME}/.m2/repository" "${HOME}/.m2/wrapper"
+
 if [ ! -f "${JAR_PATH}" ]; then
   echo "XML Model Validator: building from source..." >&2
   mkdir -p "${JAR_CACHE_DIR}"

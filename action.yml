@@ -44,15 +44,22 @@ runs:
         restore-keys: |
           xml-model-validator-${{ runner.os }}-${{ github.action_sha }}-
           xml-model-validator-${{ runner.os }}-
+    - name: Restore Maven Cache
+      id: restore-maven-cache
+      uses: actions/cache/restore@v5
+      with:
+        path: |
+          ~/.m2/repository
+          ~/.m2/wrapper
+        key: xml-model-validator-maven-${{ runner.os }}-${{ github.action_sha }}
+        restore-keys: |
+          xml-model-validator-maven-${{ runner.os }}-${{ github.action_sha }}-
+          xml-model-validator-maven-${{ runner.os }}-
     - name: Set Up Java
       uses: actions/setup-java@v5
       with:
         distribution: temurin
         java-version: "25"
-        cache: maven
-        cache-dependency-path: |
-          ${{ github.action_path }}/pom.xml
-          ${{ github.action_path }}/.mvn/wrapper/maven-wrapper.properties
     - name: Validate XML
       shell: bash
       working-directory: ${{ github.action_path }}
@@ -77,3 +84,11 @@ runs:
       with:
         path: ~/.cache/xml-model-validator
         key: xml-model-validator-${{ runner.os }}-${{ github.action_sha }}
+    - name: Save Maven Cache
+      if: always() && steps.restore-maven-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
+      with:
+        path: |
+          ~/.m2/repository
+          ~/.m2/wrapper
+        key: xml-model-validator-maven-${{ runner.os }}-${{ github.action_sha }}
