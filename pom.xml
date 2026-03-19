@@ -15,7 +15,7 @@
     <jing.version>20241231</jing.version>
     <saxon.version>12.9</saxon.version>
     <schxslt2.version>1.9</schxslt2.version>
-    <junit.version>5.13.4</junit.version>
+    <junit.version>6.0.3</junit.version>
     <exec.mainClass>ca.andrewdunning.xmlmodelvalidator.XmlValidationApplication</exec.mainClass>
   </properties>
 
