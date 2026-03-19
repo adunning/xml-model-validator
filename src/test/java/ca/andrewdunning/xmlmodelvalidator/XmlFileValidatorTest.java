@@ -178,6 +178,9 @@ final class XmlFileValidatorTest {
         || issue.message().toLowerCase().contains("must be terminated")
         || issue.message().toLowerCase().contains("well-formed")),
         "Expected a parser-level XML syntax error from schema validation");
+    assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("`")
+      && !issue.message().contains("\"")),
+      "Expected malformed XML messages to format quoted tokens with backticks");
     assertTrue(result.issues().stream().anyMatch(issue -> issue.line() != null),
         "Expected malformed XML diagnostics to include a source line");
     assertTrue(result.issues().stream().noneMatch(issue -> issue.message().contains("Validation error:")),

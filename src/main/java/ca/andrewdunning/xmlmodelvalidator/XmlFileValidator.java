@@ -32,6 +32,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * Validates a single XML file by applying supported {@code xml-model}
@@ -39,6 +40,8 @@ import java.util.Set;
  * back to XML Schema instance hints when no supported model is present.
  */
 final class XmlFileValidator {
+    private static final Pattern QUOTED_TOKEN_PATTERN = Pattern.compile("\"([^\"\\r\\n]+)\"");
+
     private final Processor processor;
     private final XPathCompiler svrlXPathCompiler;
     private final XmlModelParser xmlModelParser;
@@ -120,8 +123,15 @@ final class XmlFileValidator {
         } catch (SAXParseException exception) {
             Integer line = exception.getLineNumber() > 0 ? exception.getLineNumber() : null;
             Integer column = exception.getColumnNumber() > 0 ? exception.getColumnNumber() : null;
-            return new ValidationIssue(file, exception.getMessage(), line, column, false);
+            return new ValidationIssue(file, formatWellFormednessMessage(exception.getMessage()), line, column, false);
         }
+    }
+
+    private String formatWellFormednessMessage(String message) {
+        if (message == null || message.isBlank()) {
+            return "";
+        }
+        return QUOTED_TOKEN_PATTERN.matcher(message).replaceAll("`$1`");
     }
 
     private XMLReader createWellFormednessReader() throws ParserConfigurationException, SAXException {

@@ -14,6 +14,8 @@ import java.util.regex.Pattern;
  */
 final class JingRunner {
     private static final Pattern JING_ISSUE_PATTERN = Pattern.compile("^(.*?)(?::(\\d+)(?::(\\d+))?)?:\\s*(.+)$");
+    private static final Pattern LEADING_SEVERITY_PATTERN = Pattern.compile("^(?i)(error|warning):\\s*");
+    private static final Pattern QUOTED_TOKEN_PATTERN = Pattern.compile("\"([^\"\\r\\n]+)\"");
 
     /**
      * Serializes access because Jing writes through global stdout/stderr streams.
@@ -54,11 +56,19 @@ final class JingRunner {
             if (matcher.matches()) {
                 Integer lineNumber = matcher.group(2) != null ? Integer.valueOf(matcher.group(2)) : null;
                 Integer column = matcher.group(3) != null ? Integer.valueOf(matcher.group(3)) : null;
-                issues.add(new ValidationIssue(xmlFile, matcher.group(4), lineNumber, column, false));
+                issues.add(new ValidationIssue(xmlFile, normalizeMessage(matcher.group(4)), lineNumber, column, false));
             } else {
-                issues.add(new ValidationIssue(xmlFile, line, null, null, false));
+                issues.add(new ValidationIssue(xmlFile, normalizeMessage(line), null, null, false));
             }
         }
         return issues;
+    }
+
+    static String normalizeMessage(String message) {
+        if (message == null || message.isBlank()) {
+            return "";
+        }
+        String withoutSeverity = LEADING_SEVERITY_PATTERN.matcher(message).replaceFirst("");
+        return QUOTED_TOKEN_PATTERN.matcher(withoutSeverity).replaceAll("`$1`");
     }
 }
