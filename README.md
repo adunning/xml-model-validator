@@ -8,6 +8,11 @@ This repository provides:
 - a Java CLI
 - a self-contained GitHub Action ready for GitHub Marketplace
 
+Release artifacts are published on GitHub Releases as:
+
+- `xml-model-validator.jar`
+- `xml-model-validator.jar.sha256`
+
 The validator:
 
 - parses `xml-model` processing instructions with a proper XML parser
@@ -157,6 +162,26 @@ Run:
 java -jar target/xml-model-validator.jar --directory path/to/xml -j 0
 ```
 
-When run locally, relative paths are resolved against the current working
-directory. When run as a GitHub Action, they are resolved against
-`GITHUB_WORKSPACE`.
+Verify a published release artifact:
+
+```bash
+curl -LO https://github.com/adunning/xml-model-validator/releases/download/v1.0.0/xml-model-validator.jar
+curl -LO https://github.com/adunning/xml-model-validator/releases/download/v1.0.0/xml-model-validator.jar.sha256
+shasum -a 256 -c xml-model-validator.jar.sha256
+```
+
+## Preparing a release
+
+1. Ensure `pom.xml` and `CITATION.cff` use the target version.
+2. Ensure `CITATION.cff` `date-released` matches the planned release date.
+3. Run checks locally:
+
+```bash
+./mvnw -B verify
+```
+
+4. Tag and push (`vX.Y.Z` or `X.Y.Z` are both accepted by release validation).
+5. Publish a GitHub Release from that tag.
+
+The release workflow validates version metadata, builds the project, and uploads
+the runnable jar and SHA-256 checksum as release assets.

@@ -9,6 +9,32 @@
   <version>1.0.0</version>
   <packaging>jar</packaging>
 
+  <name>XML Model Validator</name>
+  <description>Java CLI and GitHub Action for validating XML via xml-model processing instructions.</description>
+  <url>https://github.com/adunning/xml-model-validator</url>
+
+  <licenses>
+    <license>
+      <name>MIT License</name>
+      <url>https://opensource.org/licenses/MIT</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <id>adunning</id>
+      <name>Andrew Dunning</name>
+      <url>https://github.com/adunning</url>
+    </developer>
+  </developers>
+
+  <scm>
+    <connection>scm:git:https://github.com/adunning/xml-model-validator.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com/adunning/xml-model-validator.git</developerConnection>
+    <url>https://github.com/adunning/xml-model-validator</url>
+  </scm>
+
   <properties>
     <maven.compiler.release>25</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -52,6 +78,30 @@
         <configuration>
           <release>${maven.compiler.release}</release>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.6.1</version>
+        <executions>
+          <execution>
+            <id>enforce-build-requirements</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireMavenVersion>
+                  <version>[3.9.0,)</version>
+                </requireMavenVersion>
+                <requireJavaVersion>
+                  <version>[25,)</version>
+                </requireJavaVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>

@@ -5,11 +5,16 @@ on:
     types:
       - published
 
+concurrency:
+  group: release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
 jobs:
   publish-jar:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v6
         with:
@@ -54,3 +59,24 @@ jobs:
 
       - name: Build and Verify
         run: ./mvnw -B -q verify
+
+      - name: Prepare Release Assets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p dist
+          cp target/xml-model-validator.jar dist/xml-model-validator.jar
+          shasum -a 256 dist/xml-model-validator.jar > dist/xml-model-validator.jar.sha256
+
+      - name: Upload Release Assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          gh release upload "${{ github.event.release.tag_name }}" \
+            dist/xml-model-validator.jar \
+            dist/xml-model-validator.jar.sha256 \
+            --clobber
