@@ -31,8 +31,6 @@ Set up Java first:
 
 ```yaml
 - uses: actions/checkout@v6
-  with:
-    fetch-depth: 0
 
 - uses: actions/setup-java@v5
   with:
@@ -50,7 +48,6 @@ Validate a directory recursively:
 - uses: adunning/xml-model-validator@v1
   with:
     directory: collections
-    jobs: 0
 ```
 
 Validate only the XML files changed by the current push or pull request:
@@ -59,6 +56,15 @@ Validate only the XML files changed by the current push or pull request:
 - uses: adunning/xml-model-validator@v1
   with:
     changed_only: true
+```
+
+Choose how changed files are discovered:
+
+```yaml
+- uses: adunning/xml-model-validator@v1
+  with:
+    changed_only: true
+    changed_source: auto # auto | api | git
 ```
 
 Validate explicit files and stop on the first failure:
@@ -76,6 +82,7 @@ Validate explicit files and stop on the first failure:
 - `file_list`: newline-delimited file list path
 - `directory`: directory to scan recursively
 - `changed_only`: validate only XML files changed by the current push or pull request
+- `changed_source`: source for `changed_only` file discovery (`auto`, `api`, `git`)
 - `jobs`: number of workers, `0` means automatic
 - `schema_aliases`: optional TSV file mapping remote schema URLs to local files
 - `version`: optional release tag to download, defaults to the action ref
@@ -86,6 +93,13 @@ the action validates all XML files in the repository by default.
 
 Selection precedence is `directory`, then `file_list`, then `files`, then
 `changed_only`, then the repository-wide default.
+
+When `changed_only: true`:
+
+- `changed_source: auto` (default) tries the GitHub API for pull request and
+  push events, then falls back to git diff if API discovery is unavailable.
+- `changed_source: api` requires GitHub event context and API access.
+- `changed_source: git` uses local git diff logic.
 
 ## Schema aliases
 
@@ -124,8 +138,10 @@ If you want schema downloads to persist across jobs, cache
 saves that cache itself with `actions/cache@v5`.
 
 The `changed_only` mode expects the repository to be available in the runner,
-which normally means using `actions/checkout@v6` earlier in the job. Use
-`fetch-depth: 0` so push and pull request diffs are available reliably.
+which normally means using `actions/checkout@v6` earlier in the job.
+
+If you use `changed_source: git`, `fetch-depth: 0` is recommended for reliable
+diffs on push and pull request events.
 
 ## Local development
 

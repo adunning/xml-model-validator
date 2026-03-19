@@ -1,48 +1,13 @@
 #!/bin/sh
 set -eu
 
-export XML_MODEL_VALIDATOR_WORKSPACE="${XML_MODEL_VALIDATOR_WORKSPACE:-${GITHUB_WORKSPACE:-/github/workspace}}"
-export XML_MODEL_VALIDATOR_CACHE_HOME="${XML_MODEL_VALIDATOR_CACHE_HOME:-${HOME:-${PWD}}/.cache/xml-model-validator}"
+export XML_MODEL_VALIDATOR_WORKSPACE="${XML_MODEL_VALIDATOR_WORKSPACE:-${GITHUB_WORKSPACE}}"
+export XML_MODEL_VALIDATOR_CACHE_HOME="${XML_MODEL_VALIDATOR_CACHE_HOME:-${HOME}/.cache/xml-model-validator}"
 
 ACTION_ROOT=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
-CACHE_ROOT="${XML_MODEL_VALIDATOR_CACHE_HOME}"
-RELEASE_CACHE_ROOT="${CACHE_ROOT}/releases"
+RELEASE_CACHE_ROOT="${XML_MODEL_VALIDATOR_CACHE_HOME}/releases"
 JAR_PATH="${RELEASE_CACHE_ROOT}/xml-model-validator.jar"
-CHANGED_FILE_LIST="${RUNNER_TEMP:-${ACTION_ROOT}/.cache}/xml-model-validator-changed-files.txt"
-
-api_get() {
-  if [ -n "${XML_MODEL_VALIDATOR_GITHUB_TOKEN:-}" ]; then
-    curl -fsSL \
-      -H "Accept: application/vnd.github+json" \
-      -H "Authorization: Bearer ${XML_MODEL_VALIDATOR_GITHUB_TOKEN}" \
-      "$1"
-  else
-    curl -fsSL \
-      -H "Accept: application/vnd.github+json" \
-      "$1"
-  fi
-}
-
-resolve_release_json() {
-  repository="${XML_MODEL_VALIDATOR_ACTION_REPOSITORY:-}"
-  if [ -z "${repository}" ]; then
-    echo "XML Model Validator could not determine the action repository." >&2
-    exit 1
-  fi
-
-  requested_version="${XML_MODEL_VALIDATOR_INPUT_VERSION:-${XML_MODEL_VALIDATOR_ACTION_REF:-}}"
-  requested_version="${requested_version#refs/tags/}"
-
-  if [ -n "${requested_version}" ]; then
-    release_json="$(api_get "https://api.github.com/repos/${repository}/releases/tags/${requested_version}" || true)"
-    if [ -n "${release_json}" ]; then
-      printf '%s\n' "${release_json}"
-      return
-    fi
-  fi
-
-  api_get "https://api.github.com/repos/${repository}/releases/latest"
-}
+CHANGED_FILE_LIST="${RUNNER_TEMP}/xml-model-validator-changed-files.txt"
 
 download_release_jar() {
   mkdir -p "${RELEASE_CACHE_ROOT}"
@@ -52,14 +17,23 @@ download_release_jar() {
     return
   fi
 
-  release_json="$(resolve_release_json)"
-  download_url="$(printf '%s\n' "${release_json}" | sed -n 's/.*"browser_download_url":[[:space:]]*"\([^"]*\/xml-model-validator\.jar\)".*/\1/p' | head -n 1)"
-  if [ -z "${download_url}" ]; then
-    echo "XML Model Validator could not find a release asset named xml-model-validator.jar." >&2
-    exit 1
+  repository="${XML_MODEL_VALIDATOR_ACTION_REPOSITORY}"
+  requested_version="${XML_MODEL_VALIDATOR_INPUT_VERSION:-${XML_MODEL_VALIDATOR_ACTION_REF:-}}"
+  requested_version="${requested_version#refs/tags/}"
+
+  if [ -n "${requested_version}" ]; then
+    if gh release download "${requested_version}" \
+        --repo "${repository}" \
+        --pattern "xml-model-validator.jar" \
+        --output "${JAR_PATH}" 2>/dev/null; then
+      return
+    fi
   fi
 
-  curl -fsSL -o "${JAR_PATH}" "${download_url}"
+  gh release download \
+    --repo "${repository}" \
+    --pattern "xml-model-validator.jar" \
+    --output "${JAR_PATH}"
 }
 
 download_release_jar
@@ -73,57 +47,105 @@ ensure_git_history() {
 }
 
 resolve_push_base() {
-  if [ -z "${GITHUB_EVENT_PATH:-}" ] || [ ! -f "${GITHUB_EVENT_PATH}" ]; then
-    return
-  fi
-  sed -n 's/.*"before"[[:space:]]*:[[:space:]]*"\([0-9a-f]\{40\}\)".*/\1/p' "${GITHUB_EVENT_PATH}" | head -n 1
+  jq -r '.before // empty' "${GITHUB_EVENT_PATH}"
 }
 
-write_changed_files() {
-  workspace="${XML_MODEL_VALIDATOR_WORKSPACE}"
-  if [ ! -d "${workspace}/.git" ]; then
-    echo "XML Model Validator changed_only mode requires a checked-out git repository." >&2
-    exit 1
+api_pull_request_changed_files() {
+  pr_number="$(jq -r '.number // empty' "${GITHUB_EVENT_PATH}")"
+  if [ -z "${pr_number}" ]; then
+    echo "XML Model Validator could not determine pull request number for API validation." >&2
+    return 1
   fi
 
+  gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}/files" \
+    --jq '.[] | select(.status != "removed") | .filename | select(endswith(".xml"))' || return 1
+}
+
+api_push_changed_files() {
+  before_sha="$(resolve_push_base)"
+  if [ -z "${before_sha}" ] || [ "${before_sha}" = "0000000000000000000000000000000000000000" ]; then
+    return 0
+  fi
+
+  all_files="$(gh api "repos/${GITHUB_REPOSITORY}/compare/${before_sha}...${GITHUB_SHA}" \
+    --jq '.files[]? | select(.status != "removed") | .filename')" || return 1
+  # The compare API caps the files list at 300; detect truncation so the caller can fall back.
+  file_count="$(printf '%s\n' "${all_files}" | grep -c . || true)"
+  if [ "${file_count}" -ge 300 ]; then
+    echo "XML Model Validator: compare API returned ${file_count} file(s) (at API limit); falling back." >&2
+    return 1
+  fi
+  printf '%s\n' "${all_files}" | grep '\.xml$' || true
+}
+
+write_changed_files_git() {
   mkdir -p "$(dirname "${CHANGED_FILE_LIST}")"
-  : > "${CHANGED_FILE_LIST}"
 
   (
-    cd "${workspace}"
+    cd "${XML_MODEL_VALIDATOR_WORKSPACE}"
 
-    event_name="${GITHUB_EVENT_NAME:-}"
-    if [ "${event_name}" = "pull_request" ] || [ "${event_name}" = "pull_request_target" ]; then
-      base_ref="${GITHUB_BASE_REF:-}"
-      if [ -z "${base_ref}" ]; then
-        echo "XML Model Validator could not determine GITHUB_BASE_REF for pull request validation." >&2
-        exit 1
-      fi
-
+    if [ "${GITHUB_EVENT_NAME}" = "pull_request" ] || [ "${GITHUB_EVENT_NAME}" = "pull_request_target" ]; then
       ensure_git_history
-      git fetch --no-tags origin "${base_ref}:refs/remotes/origin/${base_ref}" >/dev/null 2>&1 || true
-      git diff --name-only --diff-filter=ACMR "origin/${base_ref}...${GITHUB_SHA:-HEAD}" -- '*.xml'
+      git fetch --no-tags origin "${GITHUB_BASE_REF}:refs/remotes/origin/${GITHUB_BASE_REF}" >/dev/null 2>&1 || true
+      git diff --name-only --diff-filter=ACMR "origin/${GITHUB_BASE_REF}...${GITHUB_SHA}" -- '*.xml'
       exit
     fi
 
-    if [ "${event_name}" = "push" ]; then
+    if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
       before_sha="$(resolve_push_base)"
-      after_sha="${GITHUB_SHA:-HEAD}"
       if [ -n "${before_sha}" ] && [ "${before_sha}" != "0000000000000000000000000000000000000000" ]; then
         ensure_git_history
         if ! git cat-file -e "${before_sha}^{commit}" >/dev/null 2>&1; then
           git fetch --no-tags origin "${before_sha}" >/dev/null 2>&1 || true
         fi
-        git diff --name-only --diff-filter=ACMR "${before_sha}" "${after_sha}" -- '*.xml'
+        git diff --name-only --diff-filter=ACMR "${before_sha}" "${GITHUB_SHA}" -- '*.xml'
         exit
       fi
-
-      git diff-tree --no-commit-id --name-only -r --diff-filter=ACMR "${after_sha}" -- '*.xml'
-      exit
     fi
 
-    git diff-tree --no-commit-id --name-only -r --diff-filter=ACMR "${GITHUB_SHA:-HEAD}" -- '*.xml'
+    git diff-tree --no-commit-id --name-only -r --diff-filter=ACMR "${GITHUB_SHA}" -- '*.xml'
   ) | sed '/^$/d' > "${CHANGED_FILE_LIST}"
+}
+
+write_changed_files_api() {
+  mkdir -p "$(dirname "${CHANGED_FILE_LIST}")"
+  : > "${CHANGED_FILE_LIST}"
+
+  if [ "${GITHUB_EVENT_NAME}" = "pull_request" ] || [ "${GITHUB_EVENT_NAME}" = "pull_request_target" ]; then
+    api_pull_request_changed_files > "${CHANGED_FILE_LIST}" || return 1
+    return
+  fi
+
+  if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+    api_push_changed_files > "${CHANGED_FILE_LIST}" || return 1
+    return
+  fi
+
+  echo "XML Model Validator changed_only API mode is not supported for event '${GITHUB_EVENT_NAME}'." >&2
+  return 1
+}
+
+write_changed_files() {
+  changed_source="${XML_MODEL_VALIDATOR_INPUT_CHANGED_SOURCE:-auto}"
+  case "${changed_source}" in
+    auto)
+      if write_changed_files_api; then
+        return
+      fi
+      echo "XML Model Validator API changed file discovery failed; falling back to git diff." >&2
+      write_changed_files_git
+      ;;
+    api)
+      write_changed_files_api
+      ;;
+    git)
+      write_changed_files_git
+      ;;
+    *)
+      echo "XML Model Validator invalid changed_source '${changed_source}'. Expected one of: auto, api, git." >&2
+      exit 1
+      ;;
+  esac
 }
 
 if [ -n "${XML_MODEL_VALIDATOR_INPUT_SCHEMA_ALIASES:-}" ]; then

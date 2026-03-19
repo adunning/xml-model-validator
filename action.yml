@@ -18,6 +18,10 @@ inputs:
     description: Validate only XML files changed by the current push or pull request
     required: false
     default: "false"
+  changed_source:
+    description: Source for changed_only file discovery (auto, api, git)
+    required: false
+    default: "auto"
   jobs:
     description: Number of parallel workers to use (0 = auto)
     required: false
@@ -53,13 +57,14 @@ runs:
         XML_MODEL_VALIDATOR_INPUT_FILE_LIST: ${{ inputs.file_list }}
         XML_MODEL_VALIDATOR_INPUT_DIRECTORY: ${{ inputs.directory }}
         XML_MODEL_VALIDATOR_INPUT_CHANGED_ONLY: ${{ inputs.changed_only }}
+        XML_MODEL_VALIDATOR_INPUT_CHANGED_SOURCE: ${{ inputs.changed_source }}
         XML_MODEL_VALIDATOR_INPUT_JOBS: ${{ inputs.jobs }}
         XML_MODEL_VALIDATOR_INPUT_SCHEMA_ALIASES: ${{ inputs.schema_aliases }}
         XML_MODEL_VALIDATOR_INPUT_VERSION: ${{ inputs.version }}
         XML_MODEL_VALIDATOR_INPUT_FAIL_FAST: ${{ inputs.fail_fast }}
         XML_MODEL_VALIDATOR_ACTION_REPOSITORY: ${{ github.action_repository }}
         XML_MODEL_VALIDATOR_ACTION_REF: ${{ github.action_ref }}
-        XML_MODEL_VALIDATOR_GITHUB_TOKEN: ${{ github.token }}
+        GH_TOKEN: ${{ github.token }}
       run: |
         set -euo pipefail
         bash "${{ github.action_path }}/entrypoint.sh"
