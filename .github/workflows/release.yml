@@ -60,6 +60,26 @@ jobs:
       - name: Build and Verify
         run: ./mvnw -B -q verify
 
+      - name: Validate Jar Version Output
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          expected_version="${{ github.event.release.tag_name }}"
+          expected_version="${expected_version#v}"
+
+          actual_output="$(java -jar target/xml-model-validator.jar --version)"
+          actual_version="${actual_output#xml-model-validator }"
+
+          if [[ "${actual_version}" != "${expected_version}" ]]; then
+            echo "Jar version output mismatch detected"
+            echo "expected=${expected_version}"
+            echo "actual_output=${actual_output}"
+            exit 1
+          fi
+
+          echo "Jar version output is synchronized: ${actual_output}"
+
       - name: Prepare Release Assets
         shell: bash
         run: |

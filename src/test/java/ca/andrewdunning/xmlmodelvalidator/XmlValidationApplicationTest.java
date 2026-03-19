@@ -35,7 +35,13 @@ final class XmlValidationApplicationTest {
                 <root/>
                 """);
 
-        ValidationArguments arguments = ValidationArguments.parse(new String[] { valid.toString(), "--jobs", "1" });
+        ValidationArguments arguments = ValidationArguments.fromCli(
+                null,
+                null,
+                null,
+                List.of(valid),
+                1,
+                false);
         XmlValidationApplication application = createApplication(Map.of());
 
         int exitCode = invokeRun(application, arguments, arguments.resolveFiles());
@@ -62,14 +68,13 @@ final class XmlValidationApplicationTest {
                 <root/>
                 """);
 
-        ValidationArguments arguments = ValidationArguments.parse(new String[] {
-                "--fail-fast",
-                "--jobs",
-                "1",
-                invalid.toString(),
-                validOne.toString(),
-                validTwo.toString()
-        });
+        ValidationArguments arguments = ValidationArguments.fromCli(
+                null,
+                null,
+                null,
+                List.of(invalid, validOne, validTwo),
+                1,
+                true);
         XmlValidationApplication application = createApplication(Map.of());
         List<Path> files = arguments.resolveFiles();
 
@@ -89,11 +94,13 @@ final class XmlValidationApplicationTest {
                 <root/>
                 """);
 
-        ValidationArguments arguments = ValidationArguments.parse(new String[] {
-                "--jobs",
-                "2",
-                valid.toString()
-        });
+        ValidationArguments arguments = ValidationArguments.fromCli(
+                null,
+                null,
+                null,
+                List.of(valid),
+                2,
+                false);
         XmlValidationApplication application = createApplication(Map.of());
         ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
         PrintStream originalErr = System.err;
@@ -107,6 +114,70 @@ final class XmlValidationApplicationTest {
 
         String stderr = stderrBuffer.toString(StandardCharsets.UTF_8);
         assertTrue(stderr.contains("Validating 1 file(s) with 2 worker(s)"));
+    }
+
+    @Test
+    void executeReturnsTwoForInvalidFlag() throws Exception {
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+
+        int exitCode = XmlValidationApplication.execute(
+                new String[] { "--definitely-invalid" },
+                new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+
+        assertEquals(2, exitCode);
+        String stderr = stderrBuffer.toString(StandardCharsets.UTF_8);
+        assertTrue(stderr.contains("Unknown option"));
+        assertTrue(stdoutBuffer.toString(StandardCharsets.UTF_8).isBlank());
+    }
+
+    @Test
+    void executePrintsVersionForVersionFlag() throws Exception {
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+
+        int exitCode = XmlValidationApplication.execute(
+                new String[] { "--version" },
+                new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+
+        assertEquals(0, exitCode);
+        String stdout = stdoutBuffer.toString(StandardCharsets.UTF_8);
+        assertTrue(stdout.startsWith("xml-model-validator "));
+        assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).isBlank());
+    }
+
+    @Test
+    void executePrintsUsageForHelpFlag() throws Exception {
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+
+        int exitCode = XmlValidationApplication.execute(
+                new String[] { "--help" },
+                new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+
+        assertEquals(0, exitCode);
+        String stdout = stdoutBuffer.toString(StandardCharsets.UTF_8);
+        assertTrue(stdout.contains("Usage: xml-model-validator"));
+        assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).isBlank());
+    }
+
+    @Test
+    void executeReturnsTwoForMissingOptionValue() throws Exception {
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+
+        int exitCode = XmlValidationApplication.execute(
+                new String[] { "--directory" },
+                new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+
+        assertEquals(2, exitCode);
+        String stderr = stderrBuffer.toString(StandardCharsets.UTF_8);
+        assertTrue(stderr.contains("Missing required parameter"));
+        assertTrue(stdoutBuffer.toString(StandardCharsets.UTF_8).isBlank());
     }
 
     private XmlValidationApplication createApplication(Map<String, Path> schemaAliases) throws Exception {

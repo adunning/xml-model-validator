@@ -162,11 +162,24 @@ Run:
 java -jar target/xml-model-validator.jar --directory path/to/xml -j 0
 ```
 
+Show CLI usage:
+
+```bash
+java -jar target/xml-model-validator.jar --help
+```
+
+Show CLI version:
+
+```bash
+java -jar target/xml-model-validator.jar --version
+```
+
 Verify a published release artifact:
 
 ```bash
-curl -LO https://github.com/adunning/xml-model-validator/releases/download/v1.0.0/xml-model-validator.jar
-curl -LO https://github.com/adunning/xml-model-validator/releases/download/v1.0.0/xml-model-validator.jar.sha256
+VERSION=v1.0.0 # replace with the release tag you want to verify
+curl -LO "https://github.com/adunning/xml-model-validator/releases/download/${VERSION}/xml-model-validator.jar"
+curl -LO "https://github.com/adunning/xml-model-validator/releases/download/${VERSION}/xml-model-validator.jar.sha256"
 shasum -a 256 -c xml-model-validator.jar.sha256
 ```
 

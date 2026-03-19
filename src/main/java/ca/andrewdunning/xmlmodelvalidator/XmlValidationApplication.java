@@ -1,5 +1,6 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
+import java.io.PrintStream;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -9,6 +10,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import picocli.CommandLine;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.IVersionProvider;
+import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
 
 /**
  * Command-line entry point for validating XML files in a workspace.
@@ -23,17 +30,79 @@ public final class XmlValidationApplication {
     }
 
     public static void main(String[] args) throws Exception {
-        ValidationArguments arguments = ValidationArguments.parse(args);
-        List<Path> files = arguments.resolveFiles();
-        if (files.isEmpty()) {
-            System.err.println("WARNING: No XML files found to validate.");
-            return;
-        }
-
-        XmlValidationApplication application = new XmlValidationApplication(
-                ValidationSupport.loadSchemaAliases(arguments.schemaAliasesFile()));
-        int exitCode = application.run(arguments, files);
+        int exitCode = execute(args, System.out, System.err);
         System.exit(exitCode);
+    }
+
+    static int execute(String[] args, PrintStream output, PrintStream error) throws Exception {
+        CliCommand command = new CliCommand();
+        command.output = output;
+        command.error = error;
+        CommandLine commandLine = new CommandLine(command);
+        commandLine.setOut(new java.io.PrintWriter(output, true));
+        commandLine.setErr(new java.io.PrintWriter(error, true));
+        return commandLine.execute(args);
+    }
+
+    private static String versionString() {
+        String version = XmlValidationApplication.class.getPackage().getImplementationVersion();
+        if (version == null || version.isBlank()) {
+            version = "dev";
+        }
+        return "xml-model-validator " + version;
+    }
+
+    @Command(name = "xml-model-validator", mixinStandardHelpOptions = true, versionProvider = VersionProvider.class, description = "Validate XML files that use xml-model processing instructions")
+    private static final class CliCommand implements java.util.concurrent.Callable<Integer> {
+        @Option(names = { "-d", "--directory" }, description = "Directory containing XML files to validate recursively")
+        private Path directory;
+
+        @Option(names = "--file-list", description = "Path to a newline-delimited file list")
+        private Path fileList;
+
+        @Option(names = "--schema-aliases", description = "Optional path to a schema alias TSV file")
+        private Path schemaAliases;
+
+        @Option(names = { "-j",
+                "--jobs" }, description = "Number of parallel workers to use (0 = auto)", defaultValue = "0")
+        private int jobs;
+
+        @Option(names = "--fail-fast", description = "Stop after the first file that fails validation")
+        private boolean failFast;
+
+        @Parameters(arity = "0..*", paramLabel = "FILES", description = "XML files to validate")
+        private List<Path> explicitFiles = new ArrayList<>();
+
+        private PrintStream output;
+        private PrintStream error;
+
+        @Override
+        public Integer call() throws Exception {
+            ValidationArguments arguments = ValidationArguments.fromCli(
+                    directory,
+                    fileList,
+                    schemaAliases,
+                    explicitFiles,
+                    jobs,
+                    failFast);
+
+            List<Path> files = arguments.resolveFiles();
+            if (files.isEmpty()) {
+                error.println("WARNING: No XML files found to validate.");
+                return 0;
+            }
+
+            XmlValidationApplication application = new XmlValidationApplication(
+                    ValidationSupport.loadSchemaAliases(arguments.schemaAliasesFile()));
+            return application.run(arguments, files);
+        }
+    }
+
+    private static final class VersionProvider implements IVersionProvider {
+        @Override
+        public String[] getVersion() {
+            return new String[] { versionString() };
+        }
     }
 
     private int run(ValidationArguments arguments, List<Path> files) throws Exception {
@@ -70,7 +139,8 @@ public final class XmlValidationApplication {
     }
 
     /**
-     * Executes file validations concurrently while preserving deterministic output ordering.
+     * Executes file validations concurrently while preserving deterministic output
+     * ordering.
      */
     private static final class ValidationExecutor implements AutoCloseable {
         private final ExecutorService executorService;

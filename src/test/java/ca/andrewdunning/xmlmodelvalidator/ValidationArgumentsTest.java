@@ -23,19 +23,21 @@ final class ValidationArgumentsTest {
         Files.createDirectories(temporaryDirectory.resolve("nested"));
         Files.writeString(temporaryDirectory.resolve("nested/c.xml"), "<root/>", StandardCharsets.UTF_8);
 
-        ValidationArguments arguments = ValidationArguments.parse(new String[] {
-            "--directory", temporaryDirectory.toString()
-        });
+        ValidationArguments arguments = ValidationArguments.fromCli(
+                temporaryDirectory,
+                null,
+                null,
+                List.of(),
+                0,
+                false);
 
         List<Path> files = arguments.resolveFiles();
 
         assertEquals(
-            List.of(
-                temporaryDirectory.resolve("a.xml").toAbsolutePath().normalize(),
-                temporaryDirectory.resolve("nested/c.xml").toAbsolutePath().normalize()
-            ),
-            files
-        );
+                List.of(
+                        temporaryDirectory.resolve("a.xml").toAbsolutePath().normalize(),
+                        temporaryDirectory.resolve("nested/c.xml").toAbsolutePath().normalize()),
+                files);
     }
 
     @Test
@@ -46,10 +48,13 @@ final class ValidationArgumentsTest {
         Path fileList = temporaryDirectory.resolve("files.txt");
         Files.writeString(fileList, listed.toString() + "\n", StandardCharsets.UTF_8);
 
-        ValidationArguments arguments = ValidationArguments.parse(new String[] {
-            "--directory", temporaryDirectory.toString(),
-            "--file-list", fileList.toString()
-        });
+        ValidationArguments arguments = ValidationArguments.fromCli(
+                temporaryDirectory,
+                fileList,
+                null,
+                List.of(),
+                0,
+                false);
 
         List<Path> files = arguments.resolveFiles();
 
@@ -61,10 +66,13 @@ final class ValidationArgumentsTest {
         Path first = temporaryDirectory.resolve("a.xml");
         Path second = temporaryDirectory.resolve("z.xml");
 
-        ValidationArguments arguments = ValidationArguments.parse(new String[] {
-            second.toString(),
-            first.toString()
-        });
+        ValidationArguments arguments = ValidationArguments.fromCli(
+                null,
+                null,
+                null,
+                List.of(second, first),
+                0,
+                false);
 
         List<Path> files;
         try {
@@ -74,9 +82,8 @@ final class ValidationArgumentsTest {
         }
 
         assertEquals(
-            List.of(first.toAbsolutePath().normalize(), second.toAbsolutePath().normalize()),
-            files
-        );
+                List.of(first.toAbsolutePath().normalize(), second.toAbsolutePath().normalize()),
+                files);
         assertTrue(arguments.schemaAliasesFile().isAbsolute());
     }
 }

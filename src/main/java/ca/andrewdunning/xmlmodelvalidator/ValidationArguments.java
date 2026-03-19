@@ -40,36 +40,44 @@ final class ValidationArguments {
     }
 
     /**
-     * Parses CLI flags and positional file arguments into a normalized argument object.
+     * Builds normalized runtime arguments from CLI option values.
      */
-    static ValidationArguments parse(String[] args) {
-        Path directory = null;
-        Path fileList = null;
-        Path schemaAliasesFile = ValidationSupport.DEFAULT_SCHEMA_ALIASES_FILE;
-        List<Path> files = new ArrayList<>();
-        int jobs = 0;
-        boolean failFast = false;
+    static ValidationArguments fromCli(
+            Path directory,
+            Path fileList,
+            Path schemaAliases,
+            List<Path> explicitFiles,
+            int jobs,
+            boolean failFast) {
+        Path normalizedDirectory = directory == null
+                ? null
+                : ValidationSupport.resolveAgainstWorkspace(directory);
+        Path normalizedFileList = fileList == null
+                ? null
+                : ValidationSupport.resolveAgainstWorkspace(fileList);
+        Path normalizedSchemaAliases = schemaAliases == null
+                ? ValidationSupport.DEFAULT_SCHEMA_ALIASES_FILE
+                : ValidationSupport.resolveAgainstWorkspace(schemaAliases);
 
-        for (int index = 0; index < args.length; index += 1) {
-            String arg = args[index];
-            switch (arg) {
-                case "-d", "--directory" ->
-                    directory = ValidationSupport.resolveAgainstWorkspace(Paths.get(args[++index]));
-                case "--file-list" -> fileList = ValidationSupport.resolveAgainstWorkspace(Paths.get(args[++index]));
-                case "--schema-aliases" ->
-                    schemaAliasesFile = ValidationSupport.resolveAgainstWorkspace(Paths.get(args[++index]));
-                case "-j", "--jobs" -> jobs = Integer.parseInt(args[++index]);
-                case "--fail-fast" -> failFast = true;
-                default -> files.add(ValidationSupport.resolveAgainstWorkspace(Paths.get(arg)));
-            }
+        List<Path> files = new ArrayList<>();
+        for (Path rawFile : explicitFiles) {
+            files.add(ValidationSupport.resolveAgainstWorkspace(rawFile));
         }
 
-        boolean directoryMode = directory != null && fileList == null && files.isEmpty();
-        return new ValidationArguments(directory, fileList, schemaAliasesFile, files, jobs, failFast, directoryMode);
+        boolean directoryMode = normalizedDirectory != null && normalizedFileList == null && files.isEmpty();
+        return new ValidationArguments(
+                normalizedDirectory,
+                normalizedFileList,
+                normalizedSchemaAliases,
+                files,
+                jobs,
+                failFast,
+                directoryMode);
     }
 
     /**
-     * Resolves the effective set of XML files to validate from the provided directory, file list, or
+     * Resolves the effective set of XML files to validate from the provided
+     * directory, file list, or
      * explicit paths.
      */
     List<Path> resolveFiles() throws IOException {
