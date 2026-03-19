@@ -5,38 +5,16 @@ export XML_MODEL_VALIDATOR_WORKSPACE="${XML_MODEL_VALIDATOR_WORKSPACE:-${GITHUB_
 export XML_MODEL_VALIDATOR_CACHE_HOME="${XML_MODEL_VALIDATOR_CACHE_HOME:-${HOME}/.cache/xml-model-validator}"
 
 ACTION_ROOT=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
-RELEASE_CACHE_ROOT="${XML_MODEL_VALIDATOR_CACHE_HOME}/releases"
-JAR_PATH="${RELEASE_CACHE_ROOT}/xml-model-validator.jar"
+JAR_CACHE_DIR="${XML_MODEL_VALIDATOR_CACHE_HOME}/jar"
+JAR_PATH="${JAR_CACHE_DIR}/xml-model-validator.jar"
 CHANGED_FILE_LIST="${RUNNER_TEMP}/xml-model-validator-changed-files.txt"
 
-download_release_jar() {
-  mkdir -p "${RELEASE_CACHE_ROOT}"
-
-  if [ -f "${ACTION_ROOT}/target/xml-model-validator.jar" ]; then
-    cp "${ACTION_ROOT}/target/xml-model-validator.jar" "${JAR_PATH}"
-    return
-  fi
-
-  repository="${XML_MODEL_VALIDATOR_ACTION_REPOSITORY}"
-  requested_version="${XML_MODEL_VALIDATOR_INPUT_VERSION:-${XML_MODEL_VALIDATOR_ACTION_REF:-}}"
-  requested_version="${requested_version#refs/tags/}"
-
-  if [ -n "${requested_version}" ]; then
-    if gh release download "${requested_version}" \
-        --repo "${repository}" \
-        --pattern "xml-model-validator.jar" \
-        --output "${JAR_PATH}" 2>/dev/null; then
-      return
-    fi
-  fi
-
-  gh release download \
-    --repo "${repository}" \
-    --pattern "xml-model-validator.jar" \
-    --output "${JAR_PATH}"
-}
-
-download_release_jar
+if [ ! -f "${JAR_PATH}" ]; then
+  echo "XML Model Validator: building from source..." >&2
+  mkdir -p "${JAR_CACHE_DIR}"
+  (cd "${ACTION_ROOT}" && ./mvnw -B -q package -DskipTests)
+  cp "${ACTION_ROOT}/target/xml-model-validator.jar" "${JAR_PATH}"
+fi
 
 set -- java -jar "${JAR_PATH}"
 

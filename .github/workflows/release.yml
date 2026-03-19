@@ -9,7 +9,7 @@ jobs:
   publish-jar:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     steps:
       - uses: actions/checkout@v6
         with:
@@ -24,13 +24,5 @@ jobs:
             pom.xml
             .mvn/wrapper/maven-wrapper.properties
 
-      - name: Build Release Jar
+      - name: Build and Verify
         run: ./mvnw -B -q verify
-
-      - name: Upload Release Asset
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
-            target/xml-model-validator.jar \
-            --clobber

@@ -6,7 +6,7 @@ CLI designed for Relax NG and Schematron-heavy repositories.
 This repository provides:
 
 - a Java CLI
-- a `setup-java`-friendly GitHub Action ready for GitHub Marketplace
+- a self-contained GitHub Action ready for GitHub Marketplace
 
 The validator:
 
@@ -27,18 +27,10 @@ The validator:
 
 ## GitHub Action
 
-Set up Java first:
+Minimal usage:
 
 ```yaml
 - uses: actions/checkout@v6
-
-- uses: actions/setup-java@v5
-  with:
-    distribution: temurin
-    java-version: '25'
-```
-
-```yaml
 - uses: adunning/xml-model-validator@v1
 ```
 
@@ -85,7 +77,6 @@ Validate explicit files and stop on the first failure:
 - `changed_source`: source for `changed_only` file discovery (`auto`, `api`, `git`)
 - `jobs`: number of workers, `0` means automatic
 - `schema_aliases`: optional TSV file mapping remote schema URLs to local files
-- `version`: optional release tag to download, defaults to the action ref
 - `fail_fast`: stop after the first failing file
 
 If you do not provide `files`, `file_list`, `directory`, or `changed_only`,
@@ -127,11 +118,12 @@ can theoretically reference.
 
 ## Runtime model
 
-The GitHub Action downloads a prebuilt shaded jar from GitHub Releases and runs
-it with `java -jar`. That keeps the action fast without recompiling on every
-workflow run, and it works naturally with `actions/setup-java`.
+The GitHub Action sets up Java internally, builds the shaded jar from the
+action source when needed, then runs it with `java -jar`.
 
-Each published release should include an asset named `xml-model-validator.jar`.
+The built jar is cached in `~/.cache/xml-model-validator`, and cache keys are
+scoped to the action commit (`github.action_sha`) so updates automatically
+invalidate stale binaries.
 
 If you want schema downloads to persist across jobs, cache
 `~/.cache/xml-model-validator` in your workflow. The action also restores and
