@@ -91,6 +91,8 @@ When `changed_only: true`:
   push events, then falls back to git diff if API discovery is unavailable.
 - `changed_source: api` requires GitHub event context and API access.
 - `changed_source: git` uses local git diff logic.
+- If no changed XML files are found, the action reports that validation was
+  skipped and exits successfully.
 
 ## Schema aliases
 
@@ -121,17 +123,19 @@ can theoretically reference.
 The GitHub Action sets up Java internally, builds the shaded jar from the
 action source when needed, then runs it with `java -jar`.
 
-The built jar is cached in `~/.cache/xml-model-validator`, and cache keys are
-scoped to the action commit (`github.action_sha`) so updates automatically
-invalidate stale binaries.
+The built jar is cached under `~/.cache/xml-model-validator/jar`, and its cache
+key is derived from the action's build inputs so a cached binary is only reused
+when the jar-producing contents match.
 
 The action also caches Maven's local repository and wrapper directories under
-`~/.m2`, also keyed by `github.action_sha`, so dependency downloads are reused
-across runs of the same action revision.
+`~/.m2`, keyed from Maven dependency inputs so dependency downloads are reused
+until those inputs change.
 
-If you want schema downloads to persist across jobs, cache
-`~/.cache/xml-model-validator` in your workflow. The action also restores and
-saves that cache itself with `actions/cache@v5`.
+Remote schema downloads and prepared Schematron artifacts are cached under
+`~/.cache/xml-model-validator/schema-downloads` and
+`~/.cache/xml-model-validator/schematron`. The action restores the latest
+runtime cache and saves a fresh one at the end of each run so those artifacts
+can accumulate safely over time.
 
 The `changed_only` mode expects the repository to be available in the runner,
 which normally means using `actions/checkout@v6` earlier in the job.

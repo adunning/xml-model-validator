@@ -10,15 +10,10 @@ JAR_PATH="${JAR_CACHE_DIR}/xml-model-validator.jar"
 CHANGED_FILE_LIST="${RUNNER_TEMP}/xml-model-validator-changed-files.txt"
 
 mkdir -p "${HOME}/.m2/repository" "${HOME}/.m2/wrapper"
-
-if [ ! -f "${JAR_PATH}" ]; then
-  echo "XML Model Validator: building from source..." >&2
-  mkdir -p "${JAR_CACHE_DIR}"
-  (cd "${ACTION_ROOT}" && ./mvnw -B -q package -DskipTests)
-  cp "${ACTION_ROOT}/target/xml-model-validator.jar" "${JAR_PATH}"
-fi
-
-set -- java -jar "${JAR_PATH}"
+mkdir -p \
+  "${XML_MODEL_VALIDATOR_CACHE_HOME}/jar" \
+  "${XML_MODEL_VALIDATOR_CACHE_HOME}/schema-downloads" \
+  "${XML_MODEL_VALIDATOR_CACHE_HOME}/schematron"
 
 ensure_git_history() {
   if [ "$(git rev-parse --is-shallow-repository 2>/dev/null || printf 'false')" = "true" ]; then
@@ -128,6 +123,8 @@ write_changed_files() {
   esac
 }
 
+set -- java -jar "${JAR_PATH}"
+
 if [ -n "${XML_MODEL_VALIDATOR_INPUT_SCHEMA_ALIASES:-}" ]; then
   set -- "$@" --schema-aliases "${XML_MODEL_VALIDATOR_INPUT_SCHEMA_ALIASES}"
 fi
@@ -147,9 +144,19 @@ elif [ -n "${XML_MODEL_VALIDATOR_INPUT_FILES:-}" ]; then
   set -- "$@" ${XML_MODEL_VALIDATOR_INPUT_FILES}
 elif [ "${XML_MODEL_VALIDATOR_INPUT_CHANGED_ONLY:-false}" = "true" ]; then
   write_changed_files
+  if [ ! -s "${CHANGED_FILE_LIST}" ]; then
+    echo "XML Model Validator: no changed XML files found; skipping validation." >&2
+    exit 0
+  fi
   set -- "$@" --file-list "${CHANGED_FILE_LIST}"
 else
   set -- "$@" --directory "."
+fi
+
+if [ ! -f "${JAR_PATH}" ]; then
+  echo "XML Model Validator: building from source..." >&2
+  (cd "${ACTION_ROOT}" && ./mvnw -B -q package -DskipTests)
+  cp "${ACTION_ROOT}/target/xml-model-validator.jar" "${JAR_PATH}"
 fi
 
 exec "$@"
