@@ -34,7 +34,7 @@ jobs:
 
           release_version="${tag#v}"
 
-          pom_version="$(sed -n 's|^[[:space:]]*<version>\([^<]*\)</version>[[:space:]]*$|\1|p' pom.xml | head -n1)"
+          pom_version="$(./mvnw -q -Dexpression=project.version -DforceStdout help:evaluate)"
           cff_version="$(sed -n 's|^[[:space:]]*version:[[:space:]]*"\([^"]*\)"[[:space:]]*$|\1|p' CITATION.cff | head -n1)"
 
           if [[ -z "${pom_version}" || -z "${cff_version}" ]]; then

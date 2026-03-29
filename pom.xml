@@ -41,6 +41,8 @@
     <jing.version>20241231</jing.version>
     <saxon.version>12.9</saxon.version>
     <schxslt2.version>1.9</schxslt2.version>
+    <picocli.version>4.7.7</picocli.version>
+    <tomlj.version>1.1.1</tomlj.version>
     <junit.version>6.0.3</junit.version>
     <exec.mainClass>ca.andrewdunning.xmlmodelvalidator.XmlValidationApplication</exec.mainClass>
   </properties>
@@ -64,12 +66,12 @@
     <dependency>
       <groupId>info.picocli</groupId>
       <artifactId>picocli</artifactId>
-      <version>4.7.7</version>
+      <version>${picocli.version}</version>
     </dependency>
     <dependency>
       <groupId>org.tomlj</groupId>
       <artifactId>tomlj</artifactId>
-      <version>1.1.1</version>
+      <version>${tomlj.version}</version>
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
