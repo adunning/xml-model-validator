@@ -39,14 +39,12 @@ final class XsdValidator {
         schemaFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
         schemaFactory.setResourceResolver(new Resolver(xmlFile.getParent(), schemaResolver));
 
-        List<StreamSource> openedSources = new ArrayList<>();
-        try {
+        try (OpenedSources openedSources = new OpenedSources()) {
             Source[] sources = new Source[schemaLocations.size()];
             for (int index = 0; index < schemaLocations.size(); index += 1) {
                 ResolvedSchemaSource resolved = schemaResolver.resolveSource(schemaLocations.get(index),
                         xmlFile.getParent());
-                StreamSource source = resolved.openStreamSource();
-                openedSources.add(source);
+                StreamSource source = openedSources.open(resolved);
                 sources[index] = source;
             }
 
@@ -61,15 +59,6 @@ final class XsdValidator {
                 errorHandler.error(exception);
             }
             return errorHandler.issues();
-        } finally {
-            for (StreamSource source : openedSources) {
-                try {
-                    if (source.getInputStream() != null) {
-                        source.getInputStream().close();
-                    }
-                } catch (IOException ignored) {
-                }
-            }
         }
     }
 
@@ -231,6 +220,40 @@ final class XsdValidator {
 
         @Override
         public void setCertifiedText(boolean certifiedText) {
+        }
+    }
+
+    /**
+     * Tracks schema streams so they are closed deterministically after schema compilation.
+     */
+    private static final class OpenedSources implements AutoCloseable {
+        private final List<InputStream> streams = new ArrayList<>();
+
+        private StreamSource open(ResolvedSchemaSource resolved) throws IOException {
+            InputStream stream = Files.newInputStream(resolved.path());
+            streams.add(stream);
+            StreamSource source = new StreamSource(stream);
+            source.setSystemId(resolved.systemId());
+            return source;
+        }
+
+        @Override
+        public void close() throws IOException {
+            IOException failure = null;
+            for (InputStream stream : streams.reversed()) {
+                try {
+                    stream.close();
+                } catch (IOException exception) {
+                    if (failure == null) {
+                        failure = exception;
+                    } else {
+                        failure.addSuppressed(exception);
+                    }
+                }
+            }
+            if (failure != null) {
+                throw failure;
+            }
         }
     }
 }

@@ -39,4 +39,13 @@ final class XmlModelEntryTest {
 
         assertTrue(entry.supportsEmbeddedSchematron());
     }
+
+    @Test
+    void normalizesNullableFieldsToEmptyStrings() {
+        XmlModelEntry entry = new XmlModelEntry("schema.rng", null, null, null);
+
+        assertTrue(entry.schemaTypeNamespace().isEmpty());
+        assertTrue(entry.type().isEmpty());
+        assertTrue(entry.phase().isEmpty());
+    }
 }

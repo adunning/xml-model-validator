@@ -8,13 +8,11 @@ import org.tomlj.TomlTable;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Parses and validates the TOML validator configuration file.
@@ -34,9 +32,9 @@ final class ValidatorConfigParser {
 
         TomlParseResult parsed = Toml.parse(configFile);
         if (parsed.hasErrors()) {
-            String errors = parsed.errors().stream()
+            String errors = String.join("; ", parsed.errors().stream()
                     .map(Object::toString)
-                    .collect(Collectors.joining("; "));
+                    .toList());
             throw new IOException("Invalid validator config file " + configFile + ": " + errors);
         }
 
@@ -138,7 +136,7 @@ final class ValidatorConfigParser {
     }
 
     private static Path resolveConfigRelativePath(Path configFile, String configuredPath) {
-        Path path = Paths.get(configuredPath);
+        Path path = Path.of(configuredPath);
         if (path.isAbsolute()) {
             return path.normalize().toAbsolutePath();
         }
@@ -157,7 +155,7 @@ final class ValidatorConfigParser {
         if (trimmed.isEmpty()) {
             return null;
         }
-        Path path = Paths.get(trimmed);
+        Path path = Path.of(trimmed);
         if (path.isAbsolute()) {
             return path.normalize().toAbsolutePath();
         }

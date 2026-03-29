@@ -9,8 +9,13 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -185,13 +190,13 @@ public final class XmlValidationApplication {
     }
 
     private List<ValidationResult> validateAll(List<Path> files, int workers) throws Exception {
-        try (ValidationExecutor executor = new ValidationExecutor(Executors.newFixedThreadPool(workers), validator)) {
+        try (ValidationExecutor executor = new ValidationExecutor(validator, workers)) {
             return executor.validateAll(files);
         }
     }
 
     private List<ValidationResult> validateWithFailFast(List<Path> files, int workers) throws Exception {
-        try (ValidationExecutor executor = new ValidationExecutor(Executors.newFixedThreadPool(workers), validator)) {
+        try (ValidationExecutor executor = new ValidationExecutor(validator, workers)) {
             return executor.validateUntilFailure(files);
         }
     }
@@ -202,20 +207,22 @@ public final class XmlValidationApplication {
      */
     private static final class ValidationExecutor implements AutoCloseable {
         private final ExecutorService executorService;
+        private final Semaphore permits;
         private final XmlFileValidator validator;
 
-        private ValidationExecutor(ExecutorService executorService, XmlFileValidator validator) {
-            this.executorService = executorService;
+        private ValidationExecutor(XmlFileValidator validator, int workers) {
+            this.executorService = Executors.newVirtualThreadPerTaskExecutor();
+            this.permits = new Semaphore(workers, true);
             this.validator = validator;
         }
 
         private List<ValidationResult> validateAll(List<Path> files) throws Exception {
             List<ValidationResult> results = new ArrayList<>();
-            List<java.util.concurrent.Future<ValidationResult>> futures = new ArrayList<>();
+            List<Future<ValidationResult>> futures = new ArrayList<>();
             for (Path file : files) {
-                futures.add(executorService.submit(() -> validator.validate(file)));
+                futures.add(executorService.submit(() -> validateFile(file)));
             }
-            for (java.util.concurrent.Future<ValidationResult> future : futures) {
+            for (Future<ValidationResult> future : futures) {
                 results.add(future.get());
             }
             results.sort(Comparator.comparing(result -> result.file().toString()));
@@ -224,12 +231,11 @@ public final class XmlValidationApplication {
 
         private List<ValidationResult> validateUntilFailure(List<Path> files) throws Exception {
             List<ValidationResult> results = new ArrayList<>();
-            List<java.util.concurrent.Future<ValidationResult>> futures = new ArrayList<>();
-            java.util.concurrent.CompletionService<ValidationResult> completionService = new java.util.concurrent.ExecutorCompletionService<>(
-                    executorService);
+            List<Future<ValidationResult>> futures = new ArrayList<>();
+            CompletionService<ValidationResult> completionService = new ExecutorCompletionService<>(executorService);
 
             for (Path file : files) {
-                futures.add(completionService.submit(() -> validator.validate(file)));
+                futures.add(completionService.submit(() -> validateFile(file)));
             }
 
             boolean failureSeen = false;
@@ -243,17 +249,29 @@ public final class XmlValidationApplication {
             }
 
             if (failureSeen) {
-                for (java.util.concurrent.Future<ValidationResult> future : futures) {
+                for (Future<ValidationResult> future : futures) {
                     future.cancel(true);
                 }
             } else {
                 for (int index = results.size(); index < files.size(); index += 1) {
-                    results.add(completionService.take().get());
+                    try {
+                        results.add(completionService.take().get());
+                    } catch (CancellationException ignored) {
+                    }
                 }
             }
 
             results.sort(Comparator.comparing(result -> result.file().toString()));
             return results;
+        }
+
+        private ValidationResult validateFile(Path file) throws InterruptedException {
+            permits.acquire();
+            try {
+                return validator.validate(file);
+            } finally {
+                permits.release();
+            }
         }
 
         @Override

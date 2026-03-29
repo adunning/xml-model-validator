@@ -3,7 +3,6 @@ package ca.andrewdunning.xmlmodelvalidator;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 /**
  * Shared constants and utility methods for workspace, cache, and GitHub Actions integration.
@@ -56,7 +55,7 @@ final class ValidationSupport {
         if (href.startsWith("http://") || href.startsWith("https://")) {
             return href;
         }
-        Path path = Paths.get(href);
+        Path path = Path.of(href);
         if (path.isAbsolute()) {
             return path.normalize().toAbsolutePath().toString();
         }
@@ -69,15 +68,15 @@ final class ValidationSupport {
             configuredRoot = System.getenv("GITHUB_WORKSPACE");
         }
         if (configuredRoot == null || configuredRoot.isBlank()) {
-            return Paths.get("").toAbsolutePath().normalize();
+            return Path.of("").toAbsolutePath().normalize();
         }
-        return Paths.get(configuredRoot).toAbsolutePath().normalize();
+        return Path.of(configuredRoot).toAbsolutePath().normalize();
     }
 
     private static Path resolveCacheRoot() {
         String configuredRoot = System.getenv("XML_MODEL_VALIDATOR_CACHE_HOME");
         if (configuredRoot != null && !configuredRoot.isBlank()) {
-            Path configuredPath = Paths.get(configuredRoot).toAbsolutePath().normalize();
+            Path configuredPath = Path.of(configuredRoot).toAbsolutePath().normalize();
             if (canUseCacheRoot(configuredPath)) {
                 return configuredPath;
             }
@@ -85,7 +84,7 @@ final class ValidationSupport {
 
         String home = System.getenv("HOME");
         if (home != null && !home.isBlank()) {
-            Path homeCachePath = Paths.get(home, ".cache", "xml-model-validator").toAbsolutePath().normalize();
+            Path homeCachePath = Path.of(home, ".cache", "xml-model-validator").toAbsolutePath().normalize();
             if (canUseCacheRoot(homeCachePath)) {
                 return homeCachePath;
             }

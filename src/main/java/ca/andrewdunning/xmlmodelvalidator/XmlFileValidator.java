@@ -48,7 +48,7 @@ final class XmlFileValidator {
     private final XmlModelParser xmlModelParser;
     private final XmlSchemaHintParser xmlSchemaHintParser;
     private final SchematronCache schematronCache;
-    private final JingRunner jingRunner;
+    private final JingValidator jingValidator;
     private final SchemaResolver schemaResolver;
     private final XsdValidator xsdValidator;
     private final List<XmlModelRule> xmlModelRules;
@@ -64,7 +64,7 @@ final class XmlFileValidator {
         this.xmlModelParser = new XmlModelParser();
         this.xmlSchemaHintParser = new XmlSchemaHintParser();
         this.schematronCache = new SchematronCache(processor);
-        this.jingRunner = new JingRunner();
+        this.jingValidator = new JingValidator();
         this.schemaResolver = new SchemaResolver(schemaAliases, new RemoteSchemaCache());
         this.xsdValidator = new XsdValidator(schemaResolver);
         this.xmlModelRules = List.copyOf(xmlModelRules);
@@ -101,7 +101,7 @@ final class XmlFileValidator {
 
             List<ValidationIssue> issues = new ArrayList<>();
             for (ResolvedSchema schema : relaxNgSchemas) {
-                issues.addAll(jingRunner.validate(schema.path(), file));
+                issues.addAll(jingValidator.validate(schema.path(), file));
                 if (schema.entry().supportsEmbeddedSchematron()) {
                     issues.addAll(validateSchematron(schema.path(), file, schema.entry().phase()));
                 }

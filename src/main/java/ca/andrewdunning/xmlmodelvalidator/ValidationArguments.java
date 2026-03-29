@@ -5,11 +5,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.stream.Collectors;
 
 /**
  * Immutable command-line arguments for the validator application.
@@ -92,11 +90,11 @@ final class ValidationArguments {
                 return reader.lines()
                         .map(String::trim)
                         .filter(line -> !line.isEmpty())
-                        .map(Paths::get)
+                        .map(Path::of)
                         .map(ValidationSupport::resolveAgainstWorkspace)
                         .filter(this::matchesConfiguredExtension)
                         .sorted()
-                        .collect(Collectors.toList());
+                        .toList();
             }
         }
         if (directory != null && explicitFiles.isEmpty()) {
@@ -105,13 +103,13 @@ final class ValidationArguments {
                         .filter(path -> Files.isRegularFile(path) && matchesConfiguredExtension(path))
                         .map(path -> path.toAbsolutePath().normalize())
                         .sorted()
-                        .collect(Collectors.toList());
+                        .toList();
             }
         }
         return explicitFiles.stream()
                 .map(ValidationSupport::resolveAgainstWorkspace)
                 .sorted()
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private static List<String> normalizeFileExtensions(List<String> fileExtensions) {

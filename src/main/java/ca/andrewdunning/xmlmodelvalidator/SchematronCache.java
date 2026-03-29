@@ -24,9 +24,11 @@ import javax.xml.transform.stream.StreamSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HexFormat;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
@@ -98,7 +100,9 @@ final class SchematronCache {
 
         Transformer transformer = TransformerFactory.newInstance().newTransformer();
         transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-        transformer.transform(new DOMSource(extracted), new StreamResult(output.toFile()));
+        try (OutputStream stream = Files.newOutputStream(output)) {
+            transformer.transform(new DOMSource(extracted), new StreamResult(stream));
+        }
         return output;
     }
 
@@ -110,7 +114,7 @@ final class SchematronCache {
             return validators.get(schemaPath);
         }
         DocumentBuilder builder = processor.newDocumentBuilder();
-        XdmNode schematron = builder.build(schemaPath.toFile());
+        XdmNode schematron = builder.build(new StreamSource(schemaPath.toFile()));
         XdmDestination stylesheetDestination = new XdmDestination();
         Xslt30Transformer transformer = transpiler.load30();
         transformer.transform(schematron.asSource(), stylesheetDestination);
@@ -137,9 +141,9 @@ final class SchematronCache {
     }
 
     private static Document parseDocument(Path path) throws ParserConfigurationException, IOException {
-        try {
+        try (InputStream stream = Files.newInputStream(path)) {
             var builder = documentBuilderFactory().newDocumentBuilder();
-            return builder.parse(path.toFile());
+            return builder.parse(stream);
         } catch (org.xml.sax.SAXException exception) {
             throw new IOException("Could not parse XML document: " + path, exception);
         }
@@ -163,11 +167,7 @@ final class SchematronCache {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] bytes = digest.digest(value.getBytes(StandardCharsets.UTF_8));
-            StringBuilder builder = new StringBuilder();
-            for (byte b : bytes) {
-                builder.append(String.format("%02x", b));
-            }
-            return builder.substring(0, 16);
+            return HexFormat.of().formatHex(bytes, 0, 8);
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException(exception);
         }

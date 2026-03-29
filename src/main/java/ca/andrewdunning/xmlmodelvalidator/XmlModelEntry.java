@@ -6,33 +6,11 @@ import java.util.Locale;
  * One {@code xml-model} processing instruction interpreted in the subset of attributes used by the
  * validator.
  */
-final class XmlModelEntry {
-    private final String href;
-    private final String schemaTypeNamespace;
-    private final String type;
-    private final String phase;
-
-    XmlModelEntry(String href, String schemaTypeNamespace, String type, String phase) {
-        this.href = href;
-        this.schemaTypeNamespace = schemaTypeNamespace == null ? "" : schemaTypeNamespace;
-        this.type = type == null ? "" : type;
-        this.phase = phase == null ? "" : phase;
-    }
-
-    String href() {
-        return href;
-    }
-
-    String schemaTypeNamespace() {
-        return schemaTypeNamespace;
-    }
-
-    String type() {
-        return type;
-    }
-
-    String phase() {
-        return phase;
+record XmlModelEntry(String href, String schemaTypeNamespace, String type, String phase) {
+    XmlModelEntry {
+        schemaTypeNamespace = schemaTypeNamespace == null ? "" : schemaTypeNamespace;
+        type = type == null ? "" : type;
+        phase = phase == null ? "" : phase;
     }
 
     /**
