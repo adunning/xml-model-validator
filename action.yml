@@ -6,16 +6,20 @@ branding:
   color: blue
 inputs:
   files:
-    description: Space-separated list of XML files to validate
+    description: Space-separated list of files to validate explicitly
     required: false
   file_list:
     description: Path to a newline-delimited file list
     required: false
   directory:
-    description: Directory containing XML files to validate recursively
+    description: Directory containing matching files to validate recursively
     required: false
+  file_extensions:
+    description: Comma- or whitespace-separated file extensions to discover when scanning directories or changed files; a leading period is optional
+    required: false
+    default: ".xml"
   changed_only:
-    description: Validate only XML files changed by the current push or pull request
+    description: Validate only changed files with matching extensions from the current push or pull request
     required: false
     default: "false"
   changed_source:
@@ -109,6 +113,7 @@ runs:
         XML_MODEL_VALIDATOR_INPUT_FILES: ${{ inputs.files }}
         XML_MODEL_VALIDATOR_INPUT_FILE_LIST: ${{ inputs.file_list }}
         XML_MODEL_VALIDATOR_INPUT_DIRECTORY: ${{ inputs.directory }}
+        XML_MODEL_VALIDATOR_INPUT_FILE_EXTENSIONS: ${{ inputs.file_extensions }}
         XML_MODEL_VALIDATOR_INPUT_CHANGED_ONLY: ${{ inputs.changed_only }}
         XML_MODEL_VALIDATOR_INPUT_CHANGED_SOURCE: ${{ inputs.changed_source }}
         XML_MODEL_VALIDATOR_INPUT_JOBS: ${{ inputs.jobs }}

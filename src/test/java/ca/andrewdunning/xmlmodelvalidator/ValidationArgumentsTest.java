@@ -17,8 +17,9 @@ final class ValidationArgumentsTest {
     Path temporaryDirectory;
 
     @Test
-    void resolvesDirectoryRecursivelyForXmlFilesOnly() throws Exception {
+    void resolvesDirectoryRecursivelyForXmlFilesOnlyByDefault() throws Exception {
         Files.writeString(temporaryDirectory.resolve("a.xml"), "<root/>", StandardCharsets.UTF_8);
+        Files.writeString(temporaryDirectory.resolve("a.csl"), "<root/>", StandardCharsets.UTF_8);
         Files.writeString(temporaryDirectory.resolve("b.txt"), "ignore", StandardCharsets.UTF_8);
         Files.createDirectories(temporaryDirectory.resolve("nested"));
         Files.writeString(temporaryDirectory.resolve("nested/c.xml"), "<root/>", StandardCharsets.UTF_8);
@@ -27,6 +28,7 @@ final class ValidationArgumentsTest {
                 temporaryDirectory,
                 null,
                 null,
+                List.of(),
                 List.of(),
                 0,
                 false);
@@ -53,6 +55,7 @@ final class ValidationArgumentsTest {
                 fileList,
                 null,
                 List.of(),
+                List.of(),
                 0,
                 false);
 
@@ -71,6 +74,7 @@ final class ValidationArgumentsTest {
                 null,
                 null,
                 List.of(second, first),
+                List.of(),
                 0,
                 false);
 
@@ -85,5 +89,77 @@ final class ValidationArgumentsTest {
                 List.of(first.toAbsolutePath().normalize(), second.toAbsolutePath().normalize()),
                 files);
         assertTrue(arguments.schemaAliasesFile().isAbsolute());
+    }
+
+    @Test
+    void resolvesDirectoryRecursivelyForConfiguredExtensions() throws Exception {
+        Files.writeString(temporaryDirectory.resolve("a.csl"), "<root/>", StandardCharsets.UTF_8);
+        Files.writeString(temporaryDirectory.resolve("b.xml"), "<root/>", StandardCharsets.UTF_8);
+        Files.createDirectories(temporaryDirectory.resolve("nested"));
+        Files.writeString(temporaryDirectory.resolve("nested/c.CSL"), "<root/>", StandardCharsets.UTF_8);
+
+        ValidationArguments arguments = ValidationArguments.fromCli(
+                temporaryDirectory,
+                null,
+                null,
+                List.of(),
+                List.of("csl"),
+                0,
+                false);
+
+        List<Path> files = arguments.resolveFiles();
+
+        assertEquals(
+                List.of(
+                        temporaryDirectory.resolve("a.csl").toAbsolutePath().normalize(),
+                        temporaryDirectory.resolve("nested/c.CSL").toAbsolutePath().normalize()),
+                files);
+    }
+
+    @Test
+    void filtersFileListByConfiguredExtensions() throws Exception {
+        Path included = temporaryDirectory.resolve("included.csl");
+        Path excluded = temporaryDirectory.resolve("excluded.xml");
+        Files.writeString(included, "<root/>", StandardCharsets.UTF_8);
+        Files.writeString(excluded, "<root/>", StandardCharsets.UTF_8);
+        Path fileList = temporaryDirectory.resolve("files.txt");
+        Files.writeString(
+                fileList,
+                included + "\n" + excluded + "\n",
+                StandardCharsets.UTF_8);
+
+        ValidationArguments arguments = ValidationArguments.fromCli(
+                null,
+                fileList,
+                null,
+                List.of(),
+                List.of(".csl"),
+                0,
+                false);
+
+        List<Path> files = arguments.resolveFiles();
+
+        assertEquals(List.of(included.toAbsolutePath().normalize()), files);
+    }
+
+    @Test
+    void acceptsConfiguredExtensionsWithoutLeadingPeriods() throws Exception {
+        Files.writeString(temporaryDirectory.resolve("a.csl"), "<root/>", StandardCharsets.UTF_8);
+        Files.writeString(temporaryDirectory.resolve("b.xml"), "<root/>", StandardCharsets.UTF_8);
+
+        ValidationArguments arguments = ValidationArguments.fromCli(
+                temporaryDirectory,
+                null,
+                null,
+                List.of(),
+                List.of("csl"),
+                0,
+                false);
+
+        List<Path> files = arguments.resolveFiles();
+
+        assertEquals(
+                List.of(temporaryDirectory.resolve("a.csl").toAbsolutePath().normalize()),
+                files);
     }
 }

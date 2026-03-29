@@ -33,7 +33,7 @@ api_pull_request_changed_files() {
   fi
 
   gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${pr_number}/files" \
-    --jq '.[] | select(.status != "removed") | .filename | select(endswith(".xml"))' || return 1
+    --jq '.[] | select(.status != "removed") | .filename' || return 1
 }
 
 api_push_changed_files() {
@@ -50,7 +50,7 @@ api_push_changed_files() {
     echo "XML Model Validator: compare API returned ${file_count} file(s) (at API limit); falling back." >&2
     return 1
   fi
-  printf '%s\n' "${all_files}" | grep '\.xml$' || true
+  printf '%s\n' "${all_files}" | sed '/^$/d'
 }
 
 write_changed_files_git() {
@@ -62,7 +62,7 @@ write_changed_files_git() {
     if [ "${GITHUB_EVENT_NAME}" = "pull_request" ] || [ "${GITHUB_EVENT_NAME}" = "pull_request_target" ]; then
       ensure_git_history
       git fetch --no-tags origin "${GITHUB_BASE_REF}:refs/remotes/origin/${GITHUB_BASE_REF}" >/dev/null 2>&1 || true
-      git diff --name-only --diff-filter=ACMR "origin/${GITHUB_BASE_REF}...${GITHUB_SHA}" -- '*.xml'
+      git diff --name-only --diff-filter=ACMR "origin/${GITHUB_BASE_REF}...${GITHUB_SHA}"
       exit
     fi
 
@@ -73,12 +73,12 @@ write_changed_files_git() {
         if ! git cat-file -e "${before_sha}^{commit}" >/dev/null 2>&1; then
           git fetch --no-tags origin "${before_sha}" >/dev/null 2>&1 || true
         fi
-        git diff --name-only --diff-filter=ACMR "${before_sha}" "${GITHUB_SHA}" -- '*.xml'
+        git diff --name-only --diff-filter=ACMR "${before_sha}" "${GITHUB_SHA}"
         exit
       fi
     fi
 
-    git diff-tree --no-commit-id --name-only -r --diff-filter=ACMR "${GITHUB_SHA}" -- '*.xml'
+    git diff-tree --no-commit-id --name-only -r --diff-filter=ACMR "${GITHUB_SHA}"
   ) | sed '/^$/d' > "${CHANGED_FILE_LIST}"
 }
 
@@ -129,6 +129,10 @@ if [ -n "${XML_MODEL_VALIDATOR_INPUT_SCHEMA_ALIASES:-}" ]; then
   set -- "$@" --schema-aliases "${XML_MODEL_VALIDATOR_INPUT_SCHEMA_ALIASES}"
 fi
 
+if [ -n "${XML_MODEL_VALIDATOR_INPUT_FILE_EXTENSIONS:-}" ]; then
+  set -- "$@" --file-extensions "${XML_MODEL_VALIDATOR_INPUT_FILE_EXTENSIONS}"
+fi
+
 if [ "${XML_MODEL_VALIDATOR_INPUT_FAIL_FAST:-false}" = "true" ]; then
   set -- "$@" --fail-fast
 fi
@@ -145,7 +149,7 @@ elif [ -n "${XML_MODEL_VALIDATOR_INPUT_FILES:-}" ]; then
 elif [ "${XML_MODEL_VALIDATOR_INPUT_CHANGED_ONLY:-false}" = "true" ]; then
   write_changed_files
   if [ ! -s "${CHANGED_FILE_LIST}" ]; then
-    echo "XML Model Validator: no changed XML files found; skipping validation." >&2
+    echo "XML Model Validator: no changed files matched the configured extensions; skipping validation." >&2
     exit 0
   fi
   set -- "$@" --file-list "${CHANGED_FILE_LIST}"

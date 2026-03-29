@@ -40,6 +40,7 @@ final class XmlValidationApplicationTest {
                 null,
                 null,
                 List.of(valid),
+                List.of(),
                 1,
                 false);
         XmlValidationApplication application = createApplication(Map.of());
@@ -73,6 +74,7 @@ final class XmlValidationApplicationTest {
                 null,
                 null,
                 List.of(invalid, validOne, validTwo),
+                List.of(),
                 1,
                 true);
         XmlValidationApplication application = createApplication(Map.of());
@@ -99,6 +101,7 @@ final class XmlValidationApplicationTest {
                 null,
                 null,
                 List.of(valid),
+                List.of(),
                 2,
                 false);
         XmlValidationApplication application = createApplication(Map.of());
@@ -178,6 +181,38 @@ final class XmlValidationApplicationTest {
         String stderr = stderrBuffer.toString(StandardCharsets.UTF_8);
         assertTrue(stderr.contains("Missing required parameter"));
         assertTrue(stdoutBuffer.toString(StandardCharsets.UTF_8).isBlank());
+    }
+
+    @Test
+    void executeAcceptsConfiguredFileExtensionsForDirectoryScans() throws Exception {
+        writeRelaxNgSchema("schema.rng");
+        write("record.csl", """
+                <?xml version="1.0"?>
+                <?xml-model href="schema.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+                <root/>
+                """);
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+        PrintStream originalErr = System.err;
+
+        int exitCode;
+        try {
+            System.setErr(new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+            exitCode = XmlValidationApplication.execute(
+                    new String[] {
+                            "--directory",
+                            temporaryDirectory.toString(),
+                            "--file-extensions",
+                            "csl"
+                    },
+                    new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                    new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+        } finally {
+            System.setErr(originalErr);
+        }
+
+        assertEquals(0, exitCode);
+        assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).contains("Validating 1 file(s)"));
     }
 
     private XmlValidationApplication createApplication(Map<String, Path> schemaAliases) throws Exception {

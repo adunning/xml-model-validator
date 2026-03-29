@@ -54,6 +54,15 @@ Validate a directory recursively:
     directory: collections
 ```
 
+Validate XML files stored with a non-`.xml` extension:
+
+```yaml
+- uses: adunning/xml-model-validator@v1
+  with:
+    directory: styles
+    file_extensions: csl
+```
+
 Validate only the XML files changed by the current push or pull request:
 
 ```yaml
@@ -82,17 +91,18 @@ Validate explicit files and stop on the first failure:
 
 ## Inputs
 
-- `files`: space-separated list of XML files
+- `files`: space-separated list of files to validate explicitly
 - `file_list`: newline-delimited file list path
 - `directory`: directory to scan recursively
-- `changed_only`: validate only XML files changed by the current push or pull request
+- `file_extensions`: comma- or whitespace-separated file extensions to discover when scanning directories or changed files; a leading period is optional and the default is `.xml`
+- `changed_only`: validate only files with matching extensions changed by the current push or pull request
 - `changed_source`: source for `changed_only` file discovery (`auto`, `api`, `git`)
 - `jobs`: number of workers, `0` means automatic
 - `schema_aliases`: optional TSV file mapping remote schema URLs to local files
 - `fail_fast`: stop after the first failing file
 
 If you do not provide `files`, `file_list`, `directory`, or `changed_only`,
-the action validates all XML files in the repository by default.
+the action validates all matching files in the repository by default.
 
 Selection precedence is `directory`, then `file_list`, then `files`, then
 `changed_only`, then the repository-wide default.
@@ -103,7 +113,7 @@ When `changed_only: true`:
   push events, then falls back to git diff if API discovery is unavailable.
 - `changed_source: api` requires GitHub event context and API access.
 - `changed_source: git` uses local git diff logic.
-- If no changed XML files are found, the action reports that validation was
+- If no changed files with matching extensions are found, the action reports that validation was
   skipped and exits successfully.
 
 ## Schema aliases
@@ -167,6 +177,7 @@ Run:
 
 ```bash
 java -jar target/xml-model-validator.jar --directory path/to/xml -j 0
+java -jar target/xml-model-validator.jar --directory path/to/styles --file-extensions csl -j 0
 ```
 
 Show CLI usage:

@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 /**
@@ -18,6 +19,7 @@ final class ValidationArguments {
     private final Path fileList;
     private final Path schemaAliasesFile;
     private final List<Path> explicitFiles;
+    private final List<String> fileExtensions;
     private final int jobs;
     private final boolean failFast;
     private final boolean directoryMode;
@@ -27,6 +29,7 @@ final class ValidationArguments {
             Path fileList,
             Path schemaAliasesFile,
             List<Path> explicitFiles,
+            List<String> fileExtensions,
             int jobs,
             boolean failFast,
             boolean directoryMode) {
@@ -34,6 +37,7 @@ final class ValidationArguments {
         this.fileList = fileList;
         this.schemaAliasesFile = schemaAliasesFile;
         this.explicitFiles = explicitFiles;
+        this.fileExtensions = fileExtensions;
         this.jobs = jobs;
         this.failFast = failFast;
         this.directoryMode = directoryMode;
@@ -47,6 +51,7 @@ final class ValidationArguments {
             Path fileList,
             Path schemaAliases,
             List<Path> explicitFiles,
+            List<String> fileExtensions,
             int jobs,
             boolean failFast) {
         Path normalizedDirectory = directory == null
@@ -63,6 +68,7 @@ final class ValidationArguments {
         for (Path rawFile : explicitFiles) {
             files.add(ValidationSupport.resolveAgainstWorkspace(rawFile));
         }
+        List<String> normalizedFileExtensions = normalizeFileExtensions(fileExtensions);
 
         boolean directoryMode = normalizedDirectory != null && normalizedFileList == null && files.isEmpty();
         return new ValidationArguments(
@@ -70,15 +76,15 @@ final class ValidationArguments {
                 normalizedFileList,
                 normalizedSchemaAliases,
                 files,
+                normalizedFileExtensions,
                 jobs,
                 failFast,
                 directoryMode);
     }
 
     /**
-     * Resolves the effective set of XML files to validate from the provided
-     * directory, file list, or
-     * explicit paths.
+     * Resolves the effective set of files to validate from the provided
+     * directory, file list, or explicit paths.
      */
     List<Path> resolveFiles() throws IOException {
         if (fileList != null) {
@@ -88,6 +94,7 @@ final class ValidationArguments {
                         .filter(line -> !line.isEmpty())
                         .map(Paths::get)
                         .map(ValidationSupport::resolveAgainstWorkspace)
+                        .filter(this::matchesConfiguredExtension)
                         .sorted()
                         .collect(Collectors.toList());
             }
@@ -95,7 +102,7 @@ final class ValidationArguments {
         if (directory != null && explicitFiles.isEmpty()) {
             try (var stream = Files.walk(directory)) {
                 return stream
-                        .filter(path -> Files.isRegularFile(path) && path.toString().endsWith(".xml"))
+                        .filter(path -> Files.isRegularFile(path) && matchesConfiguredExtension(path))
                         .map(path -> path.toAbsolutePath().normalize())
                         .sorted()
                         .collect(Collectors.toList());
@@ -105,6 +112,24 @@ final class ValidationArguments {
                 .map(ValidationSupport::resolveAgainstWorkspace)
                 .sorted()
                 .collect(Collectors.toList());
+    }
+
+    private static List<String> normalizeFileExtensions(List<String> fileExtensions) {
+        if (fileExtensions == null || fileExtensions.isEmpty()) {
+            return List.of(".xml");
+        }
+        return fileExtensions.stream()
+                .map(String::trim)
+                .filter(extension -> !extension.isEmpty())
+                .map(extension -> extension.startsWith(".") ? extension : "." + extension)
+                .map(extension -> extension.toLowerCase(Locale.ROOT))
+                .distinct()
+                .toList();
+    }
+
+    private boolean matchesConfiguredExtension(Path path) {
+        String filename = path.getFileName().toString().toLowerCase(Locale.ROOT);
+        return fileExtensions.stream().anyMatch(filename::endsWith);
     }
 
     Path schemaAliasesFile() {

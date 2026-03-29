@@ -54,11 +54,18 @@ public final class XmlValidationApplication {
 
     @Command(name = "xml-model-validator", mixinStandardHelpOptions = true, versionProvider = VersionProvider.class, description = "Validate XML files that use xml-model processing instructions")
     private static final class CliCommand implements java.util.concurrent.Callable<Integer> {
-        @Option(names = { "-d", "--directory" }, description = "Directory containing XML files to validate recursively")
+        @Option(names = { "-d", "--directory" }, description = "Directory containing matching files to validate recursively")
         private Path directory;
 
         @Option(names = "--file-list", description = "Path to a newline-delimited file list")
         private Path fileList;
+
+        @Option(
+                names = "--file-extensions",
+                split = "[,\\s]+",
+                defaultValue = ".xml",
+                description = "File extensions to discover when scanning directories or file lists; a leading period is optional (default: ${DEFAULT-VALUE})")
+        private List<String> fileExtensions = new ArrayList<>();
 
         @Option(names = "--schema-aliases", description = "Optional path to a schema alias TSV file")
         private Path schemaAliases;
@@ -70,7 +77,7 @@ public final class XmlValidationApplication {
         @Option(names = "--fail-fast", description = "Stop after the first file that fails validation")
         private boolean failFast;
 
-        @Parameters(arity = "0..*", paramLabel = "FILES", description = "XML files to validate")
+        @Parameters(arity = "0..*", paramLabel = "FILES", description = "Explicit files to validate")
         private List<Path> explicitFiles = new ArrayList<>();
 
         private PrintStream output;
@@ -83,12 +90,13 @@ public final class XmlValidationApplication {
                     fileList,
                     schemaAliases,
                     explicitFiles,
+                    fileExtensions,
                     jobs,
                     failFast);
 
             List<Path> files = arguments.resolveFiles();
             if (files.isEmpty()) {
-                error.println("WARNING: No XML files found to validate.");
+                error.println("WARNING: No matching files found to validate.");
                 return 0;
             }
 
