@@ -88,7 +88,7 @@ final class ValidationArgumentsTest {
         assertEquals(
                 List.of(first.toAbsolutePath().normalize(), second.toAbsolutePath().normalize()),
                 files);
-        assertTrue(arguments.schemaAliasesFile().isAbsolute());
+        assertTrue(arguments.configFile().isAbsolute());
     }
 
     @Test
@@ -161,5 +161,23 @@ final class ValidationArgumentsTest {
         assertEquals(
                 List.of(temporaryDirectory.resolve("a.csl").toAbsolutePath().normalize()),
                 files);
+    }
+
+    @Test
+    void resolvesConfiguredConfigFileAgainstWorkspace() {
+        Path configFile = temporaryDirectory.resolve("config/config.toml");
+
+        ValidationArguments arguments = ValidationArguments.fromCli(
+                null,
+                null,
+                configFile,
+                List.of(),
+                List.of(),
+                0,
+                false);
+
+        assertEquals(
+                configFile.toAbsolutePath().normalize(),
+                arguments.configFile());
     }
 }

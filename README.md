@@ -24,8 +24,10 @@ The validator:
 - supports Schematron `phase` selection from the `xml-model` processing instruction
 - recognizes common schema hints from `schematypens`, `type`, and schema file extensions
 - follows remote schema URLs and caches downloaded schemas in the workspace
-- supports optional schema alias overrides for repositories that need to pin a
-  remote schema URL to a local file
+- supports repository configuration from a single TOML file for schema aliases
+  and rule-based `xml-model` handling
+- supports optional rule-based `xml-model` configuration by directory and/or
+  file extension, including fallback and full inline replacement modes
 - resolves XML paths, caches, and optional aliases against the consuming
   repository when run as a GitHub Action
 - emits GitHub annotations for validation failures and warnings
@@ -63,6 +65,33 @@ Validate XML files stored with a non-`.xml` extension:
     file_extensions: csl
 ```
 
+Validate files that omit inline `xml-model` declarations by applying a fallback
+rule from repository config:
+
+```yaml
+- uses: adunning/xml-model-validator@v1
+  with:
+    directory: styles
+    file_extensions: csl
+    config: .xml-validator/config.toml
+```
+
+Validate a directory with one inline Action rule instead of a repository config
+file:
+
+```yaml
+- uses: adunning/xml-model-validator@v1
+  with:
+    directory: styles
+    file_extensions: csl
+    xml_model_rule_mode: replace
+    xml_model_rule_directory: styles
+    xml_model_rule_extension: csl
+    xml_model_declarations: |
+      href="styles/schema.rng" schematypens="http://relaxng.org/ns/structure/1.0"
+      href="styles/rules.sch" schematypens="http://purl.oclc.org/dsdl/schematron"
+```
+
 Validate only the XML files changed by the current push or pull request:
 
 ```yaml
@@ -98,7 +127,16 @@ Validate explicit files and stop on the first failure:
 - `changed_only`: validate only files with matching extensions changed by the current push or pull request
 - `changed_source`: source for `changed_only` file discovery (`auto`, `api`, `git`)
 - `jobs`: number of workers, `0` means automatic
-- `schema_aliases`: optional TSV file mapping remote schema URLs to local files
+- `config`: optional TOML validator config file containing schema aliases and
+  `xml-model` rules
+- `xml_model_rule_mode`: optional inline `xml-model` rule mode (`fallback` or
+  `replace`)
+- `xml_model_rule_directory`: optional directory scope for the inline
+  `xml-model` rule
+- `xml_model_rule_extension`: optional file extension scope for the inline
+  `xml-model` rule; a leading period is optional
+- `xml_model_declarations`: optional newline-delimited declarations for one
+  inline `xml-model` rule
 - `fail_fast`: stop after the first failing file
 
 If you do not provide `files`, `file_list`, `directory`, or `changed_only`,
@@ -116,16 +154,77 @@ When `changed_only: true`:
 - If no changed files with matching extensions are found, the action reports that validation was
   skipped and exits successfully.
 
-## Schema aliases
+## Configuration
 
-The validator follows `xml-model` directly by default. If a repository needs an
-override, provide a TSV file with:
+For repositories that need local schema aliases or rule-based `xml-model`
+behaviour, provide `.xml-validator/config.toml`. Use `--config` or the
+`config` Action input to override that location.
 
-```text
-remote-url<TAB>local-path
+Example:
+
+```toml
+[schema_aliases]
+"https://example.com/schema.rng" = "schemas/local.rng"
+
+[[xml_model_rules]]
+directory = "styles"
+extension = "csl"
+mode = "fallback"
+
+[[xml_model_rules.declarations]]
+href = "styles/schema.rng"
+schematypens = "http://relaxng.org/ns/structure/1.0"
+
+[[xml_model_rules]]
+directory = "tei"
+extension = "xml"
+mode = "replace"
+
+[[xml_model_rules.declarations]]
+href = "../schemas/tei.rng"
+schematypens = "http://relaxng.org/ns/structure/1.0"
+
+[[xml_model_rules.declarations]]
+href = "../schemas/tei.sch"
+schematypens = "http://purl.oclc.org/dsdl/schematron"
 ```
 
-Relative alias paths are resolved from the alias file location.
+`schema_aliases` maps remote schema URLs to local files relative to the config
+file.
+
+`xml_model_rules` lets you define different schema sets for different
+directories or extensions. Rule `directory` values are resolved relative to the
+repository root. Rule `extension` values may be written with or without a
+leading period. Declaration `href` values in config and Action-supplied rules
+are also resolved from the repository root.
+
+Each rule can match by directory and/or extension, and can either:
+
+- `fallback`: apply only when the file has no inline `xml-model` declarations
+- `replace`: ignore inline `xml-model` declarations and use the configured
+  declarations instead
+
+When multiple rules match a file, the most specific directory rule wins; an
+extension-qualified rule beats the same directory without an extension. If two
+rules match with the same specificity and precedence, validation fails with an
+ambiguity error instead of choosing one implicitly. Inline `xml-model`
+processing instructions inside the XML file still follow standard XML relative
+resolution against the XML file itself.
+
+The GitHub Action’s inline override inputs define only one rule per run. Use
+the TOML config file when you need multiple directory-specific or
+extension-specific rules in the same workflow.
+
+Each declaration supports the same fields the validator reads from inline
+`xml-model` instructions:
+
+- `href` (required)
+- `schematypens` (optional)
+- `type` (optional)
+- `phase` (optional)
+
+The config schema is strict: unsupported keys are rejected so configuration
+mistakes fail clearly instead of being ignored silently.
 
 ## Supported schema forms
 
@@ -178,6 +277,7 @@ Run:
 ```bash
 java -jar target/xml-model-validator.jar --directory path/to/xml -j 0
 java -jar target/xml-model-validator.jar --directory path/to/styles --file-extensions csl -j 0
+java -jar target/xml-model-validator.jar --directory path/to/styles --file-extensions csl --config .xml-validator/config.toml -j 0
 ```
 
 Show CLI usage:

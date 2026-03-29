@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -189,12 +190,190 @@ final class XmlFileValidatorTest {
     assertNotNull(result.issues().getFirst());
   }
 
+  @Test
+  void validatesWithFallbackXmlModelRuleWhenInlineDeclarationIsMissing() throws Exception {
+    write("styles/schema.rng", """
+        <grammar xmlns="http://relaxng.org/ns/structure/1.0">
+          <start>
+            <element name="root">
+              <empty/>
+            </element>
+          </start>
+        </grammar>
+        """);
+    Path xml = write("styles/document.csl", """
+        <?xml version="1.0"?>
+        <root/>
+        """);
+
+    ValidationResult result = validator(List.of(
+        new XmlModelRule(
+            temporaryDirectory.resolve("styles"),
+            ".csl",
+            XmlModelRuleMode.FALLBACK,
+            List.of(new XmlModelEntry(
+                temporaryDirectory.resolve("styles/schema.rng").toString(),
+                ValidationSupport.RELAXNG_NS,
+                null,
+                null))))).validate(xml);
+
+    assertTrue(result.ok(), "Expected fallback xml-model rule to validate the file");
+    assertTrue(result.issues().isEmpty(), "Expected no validation issues from the fallback rule");
+  }
+
+  @Test
+  void prefersMoreSpecificXmlModelRule() throws Exception {
+    write("shared.rng", """
+        <grammar xmlns="http://relaxng.org/ns/structure/1.0">
+          <start>
+            <element name="fallback">
+              <empty/>
+            </element>
+          </start>
+        </grammar>
+        """);
+    write("styles/targeted.rng", """
+        <grammar xmlns="http://relaxng.org/ns/structure/1.0">
+          <start>
+            <element name="root">
+              <empty/>
+            </element>
+          </start>
+        </grammar>
+        """);
+    Path xml = write("styles/document.csl", """
+        <?xml version="1.0"?>
+        <root/>
+        """);
+
+    ValidationResult result = validator(List.of(
+        new XmlModelRule(
+            null,
+            ".csl",
+            XmlModelRuleMode.FALLBACK,
+            List.of(new XmlModelEntry(
+                temporaryDirectory.resolve("shared.rng").toString(),
+                ValidationSupport.RELAXNG_NS,
+                null,
+                null))),
+        new XmlModelRule(
+            temporaryDirectory.resolve("styles"),
+            ".csl",
+            XmlModelRuleMode.FALLBACK,
+            List.of(new XmlModelEntry(
+                temporaryDirectory.resolve("styles/targeted.rng").toString(),
+                ValidationSupport.RELAXNG_NS,
+                null,
+                null))))).validate(xml);
+
+    assertTrue(result.ok(), "Expected the directory-specific fallback rule to win");
+    assertTrue(result.issues().isEmpty(), "Expected the more specific fallback rule to validate cleanly");
+  }
+
+  @Test
+  void rejectsAmbiguousXmlModelRulesWithEqualSpecificity() throws Exception {
+    Path xml = write("styles/document.csl", """
+        <?xml version="1.0"?>
+        <root/>
+        """);
+
+    ValidationResult result = validator(List.of(
+        new XmlModelRule(
+            temporaryDirectory.resolve("styles"),
+            ".csl",
+            XmlModelRuleMode.FALLBACK,
+            List.of(new XmlModelEntry(
+                temporaryDirectory.resolve("one.rng").toString(),
+                ValidationSupport.RELAXNG_NS,
+                null,
+                null))),
+        new XmlModelRule(
+            temporaryDirectory.resolve("styles"),
+            ".csl",
+            XmlModelRuleMode.REPLACE,
+            List.of(new XmlModelEntry(
+                temporaryDirectory.resolve("two.rng").toString(),
+                ValidationSupport.RELAXNG_NS,
+                null,
+                null)))))
+            .validate(xml);
+
+    assertFalse(result.ok());
+    assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("Ambiguous xml-model rules")));
+  }
+
+  @Test
+  void replaceRuleOverridesInlineDeclarationsAndCanApplyMultipleConfiguredSchemas() throws Exception {
+    write("inline.rng", """
+        <grammar xmlns="http://relaxng.org/ns/structure/1.0">
+          <start>
+            <element name="root">
+              <empty/>
+            </element>
+          </start>
+        </grammar>
+        """);
+    write("styles/replacement.rng", """
+        <grammar xmlns="http://relaxng.org/ns/structure/1.0">
+          <start>
+            <element name="root">
+              <element name="child">
+                <empty/>
+              </element>
+            </element>
+          </start>
+        </grammar>
+        """);
+    write("styles/replacement.sch", """
+        <schema xmlns="http://purl.oclc.org/dsdl/schematron" queryBinding="xslt2">
+          <pattern>
+            <rule context="root">
+              <assert test="@status = 'ok'">status must be ok</assert>
+            </rule>
+          </pattern>
+        </schema>
+        """);
+    Path xml = write("styles/document.csl", """
+        <?xml version="1.0"?>
+        <?xml-model href="../inline.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+        <root/>
+        """);
+
+    ValidationResult result = validator(List.of(
+        new XmlModelRule(
+            temporaryDirectory.resolve("styles"),
+            ".csl",
+                XmlModelRuleMode.REPLACE,
+                List.of(
+                new XmlModelEntry(
+                    temporaryDirectory.resolve("styles/replacement.rng").toString(),
+                    ValidationSupport.RELAXNG_NS,
+                    null,
+                    null),
+                new XmlModelEntry(
+                    temporaryDirectory.resolve("styles/replacement.sch").toString(),
+                    ValidationSupport.SCHEMATRON_NS,
+                    null,
+                    null))))).validate(xml);
+
+    assertFalse(result.ok(), "Expected replacement rule to override inline xml-model declarations");
+    assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("child")),
+        "Expected replacement Relax NG validation to run");
+    assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("status must be ok")),
+        "Expected replacement Schematron validation to run");
+  }
+
   private XmlFileValidator validator() {
-    return new XmlFileValidator(Map.of());
+    return validator(List.of());
+  }
+
+  private XmlFileValidator validator(List<XmlModelRule> xmlModelRules) {
+    return new XmlFileValidator(Map.of(), xmlModelRules);
   }
 
   private Path write(String relativePath, String content) throws IOException {
     Path file = temporaryDirectory.resolve(relativePath);
+    Files.createDirectories(file.getParent());
     Files.writeString(file, content.stripIndent(), StandardCharsets.UTF_8);
     return file;
   }

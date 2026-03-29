@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -50,8 +51,13 @@ final class XmlFileValidator {
     private final JingRunner jingRunner;
     private final SchemaResolver schemaResolver;
     private final XsdValidator xsdValidator;
+    private final List<XmlModelRule> xmlModelRules;
 
     XmlFileValidator(Map<String, Path> schemaAliases) {
+        this(schemaAliases, List.of());
+    }
+
+    XmlFileValidator(Map<String, Path> schemaAliases, List<XmlModelRule> xmlModelRules) {
         this.processor = new Processor(false);
         this.svrlXPathCompiler = processor.newXPathCompiler();
         this.svrlXPathCompiler.declareNamespace("svrl", ValidationSupport.SVRL_NS);
@@ -61,11 +67,12 @@ final class XmlFileValidator {
         this.jingRunner = new JingRunner();
         this.schemaResolver = new SchemaResolver(schemaAliases, new RemoteSchemaCache());
         this.xsdValidator = new XsdValidator(schemaResolver);
+        this.xmlModelRules = List.copyOf(xmlModelRules);
     }
 
     ValidationResult validate(Path file) {
         try {
-            List<XmlModelEntry> entries = xmlModelParser.parse(file);
+            List<XmlModelEntry> entries = resolveXmlModelEntries(file);
             ValidationIssue wellFormednessIssue = validateWellFormedness(file);
             if (wellFormednessIssue != null) {
                 return ValidationResult.failed(file, wellFormednessIssue);
@@ -191,6 +198,54 @@ final class XmlFileValidator {
             }
         }
         return schemas;
+    }
+
+    private List<XmlModelEntry> resolveXmlModelEntries(Path file) throws java.io.IOException {
+        List<XmlModelEntry> inlineEntries = xmlModelParser.parse(file);
+        Optional<XmlModelRule> matchingRule = findXmlModelRule(file);
+        if (matchingRule.isEmpty()) {
+            return inlineEntries;
+        }
+        XmlModelRule rule = matchingRule.get();
+        if (rule.mode() == XmlModelRuleMode.REPLACE) {
+            return rule.entries();
+        }
+        if (inlineEntries.isEmpty()) {
+            return rule.entries();
+        }
+        return inlineEntries;
+    }
+
+    private Optional<XmlModelRule> findXmlModelRule(Path file) {
+        XmlModelRule bestRule = null;
+        int bestSpecificity = Integer.MIN_VALUE;
+        int bestPriority = Integer.MIN_VALUE;
+        for (XmlModelRule rule : xmlModelRules) {
+            if (!rule.matches(file)) {
+                continue;
+            }
+            int specificity = rule.specificity();
+            if (specificity > bestSpecificity
+                    || (specificity == bestSpecificity && rule.priority() > bestPriority)) {
+                bestRule = rule;
+                bestSpecificity = specificity;
+                bestPriority = rule.priority();
+                continue;
+            }
+            if (specificity == bestSpecificity
+                    && rule.priority() == bestPriority
+                    && bestRule != null) {
+                throw new IllegalStateException(
+                        "Ambiguous xml-model rules match "
+                                + file
+                                + ": ["
+                                + bestRule.describe()
+                                + "] and ["
+                                + rule.describe()
+                                + "]");
+            }
+        }
+        return Optional.ofNullable(bestRule);
     }
 
     private List<ValidationIssue> validateSchematron(Path schemaPath, Path xmlFile, String phase) throws Exception {

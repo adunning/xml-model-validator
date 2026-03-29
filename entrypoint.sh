@@ -125,8 +125,30 @@ write_changed_files() {
 
 set -- java -jar "${JAR_PATH}"
 
-if [ -n "${XML_MODEL_VALIDATOR_INPUT_SCHEMA_ALIASES:-}" ]; then
-  set -- "$@" --schema-aliases "${XML_MODEL_VALIDATOR_INPUT_SCHEMA_ALIASES}"
+if [ -n "${XML_MODEL_VALIDATOR_INPUT_CONFIG:-}" ]; then
+  set -- "$@" --config "${XML_MODEL_VALIDATOR_INPUT_CONFIG}"
+fi
+
+if [ -n "${XML_MODEL_VALIDATOR_INPUT_XML_MODEL_RULE_MODE:-}" ]; then
+  set -- "$@" --rule-mode "${XML_MODEL_VALIDATOR_INPUT_XML_MODEL_RULE_MODE}"
+fi
+
+if [ -n "${XML_MODEL_VALIDATOR_INPUT_XML_MODEL_RULE_DIRECTORY:-}" ]; then
+  set -- "$@" --rule-directory "${XML_MODEL_VALIDATOR_INPUT_XML_MODEL_RULE_DIRECTORY}"
+fi
+
+if [ -n "${XML_MODEL_VALIDATOR_INPUT_XML_MODEL_RULE_EXTENSION:-}" ]; then
+  set -- "$@" --rule-extension "${XML_MODEL_VALIDATOR_INPUT_XML_MODEL_RULE_EXTENSION}"
+fi
+
+if [ -n "${XML_MODEL_VALIDATOR_INPUT_XML_MODEL_DECLARATIONS:-}" ]; then
+  while IFS= read -r declaration; do
+    if [ -n "${declaration}" ]; then
+      set -- "$@" --xml-model-declaration "${declaration}"
+    fi
+  done <<EOF
+${XML_MODEL_VALIDATOR_INPUT_XML_MODEL_DECLARATIONS}
+EOF
 fi
 
 if [ -n "${XML_MODEL_VALIDATOR_INPUT_FILE_EXTENSIONS:-}" ]; then

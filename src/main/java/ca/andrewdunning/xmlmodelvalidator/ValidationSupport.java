@@ -1,12 +1,9 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Shared constants and utility methods for workspace, cache, and GitHub Actions integration.
@@ -19,7 +16,7 @@ final class ValidationSupport {
     static final Path CACHE_ROOT = resolveCacheRoot();
     static final Path SCHEMATRON_CACHE_DIR = CACHE_ROOT.resolve("schematron");
     static final Path SCHEMA_DOWNLOAD_CACHE_DIR = CACHE_ROOT.resolve("schema-downloads");
-    static final Path DEFAULT_SCHEMA_ALIASES_FILE = WORKSPACE_ROOT.resolve(".xml-validator/schema-aliases.tsv");
+    static final Path DEFAULT_CONFIG_FILE = WORKSPACE_ROOT.resolve(".xml-validator/config.toml");
 
     private ValidationSupport() {
     }
@@ -47,35 +44,23 @@ final class ValidationSupport {
         return WORKSPACE_ROOT.resolve(path).normalize().toAbsolutePath();
     }
 
-    static Map<String, Path> loadSchemaAliases(Path aliasesFile) throws IOException {
-        Map<String, Path> aliases = new HashMap<>();
-        if (!Files.exists(aliasesFile)) {
-            return aliases;
-        }
-        for (String rawLine : Files.readAllLines(aliasesFile, StandardCharsets.UTF_8)) {
-            String line = rawLine.trim();
-            if (line.isEmpty() || line.startsWith("#")) {
-                continue;
-            }
-            String[] parts = line.split("\t", 2);
-            if (parts.length != 2) {
-                throw new IOException("Invalid schema alias line in " + aliasesFile + ": " + rawLine);
-            }
-            aliases.put(parts[0], resolveAliasPath(aliasesFile, parts[1]));
-        }
-        return aliases;
+    static ValidatorConfig loadConfig(Path configFile) throws IOException {
+        return ValidatorConfigParser.parse(configFile);
     }
 
-    private static Path resolveAliasPath(Path aliasesFile, String aliasPath) {
-        Path path = Paths.get(aliasPath);
+    static XmlModelEntry createConfiguredXmlModelEntry(String href, String schemaTypeNamespace, String type, String phase) {
+        return new XmlModelEntry(normalizeConfiguredHref(href), schemaTypeNamespace, type, phase);
+    }
+
+    private static String normalizeConfiguredHref(String href) {
+        if (href.startsWith("http://") || href.startsWith("https://")) {
+            return href;
+        }
+        Path path = Paths.get(href);
         if (path.isAbsolute()) {
-            return path.normalize().toAbsolutePath();
+            return path.normalize().toAbsolutePath().toString();
         }
-        Path parent = aliasesFile.toAbsolutePath().normalize().getParent();
-        if (parent == null) {
-            return resolveAgainstWorkspace(path);
-        }
-        return parent.resolve(path).normalize().toAbsolutePath();
+        return WORKSPACE_ROOT.resolve(path).normalize().toAbsolutePath().toString();
     }
 
     private static Path resolveWorkspaceRoot() {
@@ -92,14 +77,29 @@ final class ValidationSupport {
     private static Path resolveCacheRoot() {
         String configuredRoot = System.getenv("XML_MODEL_VALIDATOR_CACHE_HOME");
         if (configuredRoot != null && !configuredRoot.isBlank()) {
-            return Paths.get(configuredRoot).toAbsolutePath().normalize();
+            Path configuredPath = Paths.get(configuredRoot).toAbsolutePath().normalize();
+            if (canUseCacheRoot(configuredPath)) {
+                return configuredPath;
+            }
         }
 
         String home = System.getenv("HOME");
         if (home != null && !home.isBlank()) {
-            return Paths.get(home, ".cache", "xml-model-validator").toAbsolutePath().normalize();
+            Path homeCachePath = Paths.get(home, ".cache", "xml-model-validator").toAbsolutePath().normalize();
+            if (canUseCacheRoot(homeCachePath)) {
+                return homeCachePath;
+            }
         }
 
         return WORKSPACE_ROOT.resolve(".cache/xml-model-validator").toAbsolutePath().normalize();
+    }
+
+    private static boolean canUseCacheRoot(Path path) {
+        try {
+            Files.createDirectories(path);
+            return Files.isWritable(path);
+        } catch (IOException exception) {
+            return false;
+        }
     }
 }

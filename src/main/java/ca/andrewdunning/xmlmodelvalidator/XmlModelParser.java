@@ -27,6 +27,7 @@ import java.util.regex.Pattern;
  */
 final class XmlModelParser {
     private static final Pattern XML_MODEL_ATTRIBUTE_PATTERN = Pattern.compile("(\\w+)\\s*=\\s*([\"'])(.*?)\\2");
+    private static final Pattern XML_MODEL_WRAPPER_PATTERN = Pattern.compile("^<\\?xml-model\\s+(.*?)\\?>$", Pattern.DOTALL);
 
     /**
      * Returns xml-model declarations in document order.
@@ -53,6 +54,42 @@ final class XmlModelParser {
         } catch (ParserConfigurationException | SAXException exception) {
             throw new IOException("Could not parse xml-model processing instructions from " + file, exception);
         }
+    }
+
+    /**
+     * Parses one manual {@code xml-model} declaration string into an entry.
+     */
+    static XmlModelEntry parseDeclaration(String declaration) throws IOException {
+        String normalized = declaration == null ? "" : declaration.trim();
+        if (normalized.isEmpty()) {
+            throw new IOException("Manual xml-model declaration must not be blank");
+        }
+
+        Matcher wrapperMatcher = XML_MODEL_WRAPPER_PATTERN.matcher(normalized);
+        if (wrapperMatcher.matches()) {
+            normalized = wrapperMatcher.group(1).trim();
+        }
+
+        Map<String, String> attributes = parseAttributes(normalized);
+        String href = attributes.get("href");
+        if (href == null || href.isBlank()) {
+            throw new IOException("Manual xml-model declaration must include a non-blank href attribute");
+        }
+
+        return new XmlModelEntry(
+                href,
+                attributes.get("schematypens"),
+                attributes.get("type"),
+                attributes.get("phase"));
+    }
+
+    private static Map<String, String> parseAttributes(String data) {
+        Map<String, String> attributes = new HashMap<>();
+        Matcher attributeMatcher = XML_MODEL_ATTRIBUTE_PATTERN.matcher(data);
+        while (attributeMatcher.find()) {
+            attributes.put(attributeMatcher.group(1), attributeMatcher.group(3));
+        }
+        return attributes;
     }
 
     private XMLReader createReader(List<XmlModelEntry> entries) throws ParserConfigurationException, SAXException {
@@ -88,20 +125,9 @@ final class XmlModelParser {
             if (!"xml-model".equals(target)) {
                 return;
             }
-
-            Map<String, String> attributes = new HashMap<>();
-            Matcher attributeMatcher = XML_MODEL_ATTRIBUTE_PATTERN.matcher(data);
-            while (attributeMatcher.find()) {
-                attributes.put(attributeMatcher.group(1), attributeMatcher.group(3));
-            }
-
-            String href = attributes.get("href");
-            if (href != null && !href.isBlank()) {
-                entries.add(new XmlModelEntry(
-                        href,
-                        attributes.get("schematypens"),
-                        attributes.get("type"),
-                        attributes.get("phase")));
+            try {
+                entries.add(parseDeclaration(data));
+            } catch (IOException ignored) {
             }
         }
 

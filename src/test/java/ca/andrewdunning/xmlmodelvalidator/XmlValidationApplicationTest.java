@@ -43,7 +43,7 @@ final class XmlValidationApplicationTest {
                 List.of(),
                 1,
                 false);
-        XmlValidationApplication application = createApplication(Map.of());
+        XmlValidationApplication application = createApplication(Map.of(), List.of());
 
         int exitCode = invokeRun(application, arguments, arguments.resolveFiles());
 
@@ -77,7 +77,7 @@ final class XmlValidationApplicationTest {
                 List.of(),
                 1,
                 true);
-        XmlValidationApplication application = createApplication(Map.of());
+        XmlValidationApplication application = createApplication(Map.of(), List.of());
         List<Path> files = arguments.resolveFiles();
 
         List<ValidationResult> results = invokeValidateFiles(application, arguments, files, 1);
@@ -104,7 +104,7 @@ final class XmlValidationApplicationTest {
                 List.of(),
                 2,
                 false);
-        XmlValidationApplication application = createApplication(Map.of());
+        XmlValidationApplication application = createApplication(Map.of(), List.of());
         ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
         PrintStream originalErr = System.err;
 
@@ -215,11 +215,216 @@ final class XmlValidationApplicationTest {
         assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).contains("Validating 1 file(s)"));
     }
 
-    private XmlValidationApplication createApplication(Map<String, Path> schemaAliases) throws Exception {
+    @Test
+    void executeAcceptsConfigFile() throws Exception {
+        write("styles/schema.rng", """
+                <grammar xmlns="http://relaxng.org/ns/structure/1.0">
+                  <start>
+                    <element name="root">
+                      <empty/>
+                    </element>
+                  </start>
+                </grammar>
+                """);
+        write("styles/document.csl", """
+                <?xml version="1.0"?>
+                <root/>
+                """);
+        Path configFile = write("config.toml", """
+                [[xml_model_rules]]
+                directory = "%s"
+                extension = "csl"
+                mode = "fallback"
+
+                [[xml_model_rules.declarations]]
+                href = "%s"
+                schematypens = "http://relaxng.org/ns/structure/1.0"
+                """.formatted(
+                        temporaryDirectory.resolve("styles"),
+                        temporaryDirectory.resolve("styles/schema.rng")));
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+        PrintStream originalErr = System.err;
+
+        int exitCode;
+        try {
+            System.setErr(new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+            exitCode = XmlValidationApplication.execute(
+                    new String[] {
+                            "--directory",
+                            temporaryDirectory.resolve("styles").toString(),
+                            "--file-extensions",
+                            "csl",
+                            "--config",
+                            configFile.toString()
+                    },
+                    new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                    new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+        } finally {
+            System.setErr(originalErr);
+        }
+
+        assertEquals(0, exitCode);
+        assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).contains("Validating 1 file(s)"));
+    }
+
+    @Test
+    void executeAcceptsInlineXmlModelRule() throws Exception {
+        write("styles/schema.rng", """
+                <grammar xmlns="http://relaxng.org/ns/structure/1.0">
+                  <start>
+                    <element name="root">
+                      <empty/>
+                    </element>
+                  </start>
+                </grammar>
+                """);
+        write("styles/document.csl", """
+                <?xml version="1.0"?>
+                <root/>
+                """);
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+        PrintStream originalErr = System.err;
+
+        int exitCode;
+        try {
+            System.setErr(new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+            exitCode = XmlValidationApplication.execute(
+                    new String[] {
+                            "--directory",
+                            temporaryDirectory.resolve("styles").toString(),
+                            "--file-extensions",
+                            "csl",
+                            "--rule-mode",
+                            "fallback",
+                            "--rule-directory",
+                            temporaryDirectory.resolve("styles").toString(),
+                            "--rule-extension",
+                            "csl",
+                            "--xml-model-declaration",
+                            "href=\"%s\" schematypens=\"http://relaxng.org/ns/structure/1.0\""
+                                    .formatted(temporaryDirectory.resolve("styles/schema.rng"))
+                    },
+                    new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                    new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+        } finally {
+            System.setErr(originalErr);
+        }
+
+        assertEquals(0, exitCode);
+        assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).contains("Validating 1 file(s)"));
+    }
+
+    @Test
+    void executeFailsForMissingExplicitConfigFile() throws Exception {
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+
+        int exitCode = XmlValidationApplication.execute(
+                new String[] { "--config", temporaryDirectory.resolve("missing.toml").toString() },
+                new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+
+        assertEquals(1, exitCode);
+        assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).contains("does not exist"));
+    }
+
+    @Test
+    void executeFailsForInlineRuleFlagsWithoutDeclarations() throws Exception {
+        write("document.xml", "<root/>");
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+
+        int exitCode = XmlValidationApplication.execute(
+                new String[] {
+                        "--directory",
+                        temporaryDirectory.toString(),
+                        "--rule-mode",
+                        "replace"
+                },
+                new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+
+        assertEquals(1, exitCode);
+        assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).contains("--xml-model-declaration"));
+    }
+
+    @Test
+    void inlineRuleOverridesConflictingConfigRule() throws Exception {
+        write("styles/config.rng", """
+                <grammar xmlns="http://relaxng.org/ns/structure/1.0">
+                  <start>
+                    <element name="wrong">
+                      <empty/>
+                    </element>
+                  </start>
+                </grammar>
+                """);
+        write("styles/inline.rng", """
+                <grammar xmlns="http://relaxng.org/ns/structure/1.0">
+                  <start>
+                    <element name="root">
+                      <empty/>
+                    </element>
+                  </start>
+                </grammar>
+                """);
+        write("styles/document.csl", """
+                <?xml version="1.0"?>
+                <root/>
+                """);
+        Path configFile = write("config.toml", """
+                [[xml_model_rules]]
+                directory = "%s"
+                extension = "csl"
+                mode = "fallback"
+
+                [[xml_model_rules.declarations]]
+                href = "%s"
+                schematypens = "http://relaxng.org/ns/structure/1.0"
+                """.formatted(
+                        temporaryDirectory.resolve("styles"),
+                        temporaryDirectory.resolve("styles/config.rng")));
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+        PrintStream originalErr = System.err;
+
+        int exitCode;
+        try {
+            System.setErr(new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+            exitCode = XmlValidationApplication.execute(
+                    new String[] {
+                            "--directory",
+                            temporaryDirectory.resolve("styles").toString(),
+                            "--file-extensions",
+                            "csl",
+                            "--config",
+                            configFile.toString(),
+                            "--rule-mode",
+                            "fallback",
+                            "--rule-directory",
+                            temporaryDirectory.resolve("styles").toString(),
+                            "--rule-extension",
+                            "csl",
+                            "--xml-model-declaration",
+                            "href=\"%s\" schematypens=\"http://relaxng.org/ns/structure/1.0\""
+                                    .formatted(temporaryDirectory.resolve("styles/inline.rng"))
+                    },
+                    new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                    new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+        } finally {
+            System.setErr(originalErr);
+        }
+
+        assertEquals(0, exitCode);
+    }
+
+    private XmlValidationApplication createApplication(Map<String, Path> schemaAliases, List<XmlModelRule> xmlModelRules) throws Exception {
         Constructor<XmlValidationApplication> constructor = XmlValidationApplication.class
-                .getDeclaredConstructor(Map.class);
+                .getDeclaredConstructor(Map.class, List.class);
         constructor.setAccessible(true);
-        return constructor.newInstance(schemaAliases);
+        return constructor.newInstance(schemaAliases, xmlModelRules);
     }
 
     private int invokeRun(XmlValidationApplication application, ValidationArguments arguments, List<Path> files)

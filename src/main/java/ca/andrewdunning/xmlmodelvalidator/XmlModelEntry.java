@@ -23,6 +23,14 @@ final class XmlModelEntry {
         return href;
     }
 
+    String schemaTypeNamespace() {
+        return schemaTypeNamespace;
+    }
+
+    String type() {
+        return type;
+    }
+
     String phase() {
         return phase;
     }

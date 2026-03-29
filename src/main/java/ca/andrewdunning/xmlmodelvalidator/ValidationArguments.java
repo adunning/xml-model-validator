@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 final class ValidationArguments {
     private final Path directory;
     private final Path fileList;
-    private final Path schemaAliasesFile;
+    private final Path configFile;
     private final List<Path> explicitFiles;
     private final List<String> fileExtensions;
     private final int jobs;
@@ -27,7 +27,7 @@ final class ValidationArguments {
     private ValidationArguments(
             Path directory,
             Path fileList,
-            Path schemaAliasesFile,
+            Path configFile,
             List<Path> explicitFiles,
             List<String> fileExtensions,
             int jobs,
@@ -35,7 +35,7 @@ final class ValidationArguments {
             boolean directoryMode) {
         this.directory = directory;
         this.fileList = fileList;
-        this.schemaAliasesFile = schemaAliasesFile;
+        this.configFile = configFile;
         this.explicitFiles = explicitFiles;
         this.fileExtensions = fileExtensions;
         this.jobs = jobs;
@@ -49,7 +49,7 @@ final class ValidationArguments {
     static ValidationArguments fromCli(
             Path directory,
             Path fileList,
-            Path schemaAliases,
+            Path configFile,
             List<Path> explicitFiles,
             List<String> fileExtensions,
             int jobs,
@@ -60,9 +60,9 @@ final class ValidationArguments {
         Path normalizedFileList = fileList == null
                 ? null
                 : ValidationSupport.resolveAgainstWorkspace(fileList);
-        Path normalizedSchemaAliases = schemaAliases == null
-                ? ValidationSupport.DEFAULT_SCHEMA_ALIASES_FILE
-                : ValidationSupport.resolveAgainstWorkspace(schemaAliases);
+        Path normalizedConfigFile = configFile == null
+                ? ValidationSupport.DEFAULT_CONFIG_FILE
+                : ValidationSupport.resolveAgainstWorkspace(configFile);
 
         List<Path> files = new ArrayList<>();
         for (Path rawFile : explicitFiles) {
@@ -74,7 +74,7 @@ final class ValidationArguments {
         return new ValidationArguments(
                 normalizedDirectory,
                 normalizedFileList,
-                normalizedSchemaAliases,
+                normalizedConfigFile,
                 files,
                 normalizedFileExtensions,
                 jobs,
@@ -132,8 +132,8 @@ final class ValidationArguments {
         return fileExtensions.stream().anyMatch(filename::endsWith);
     }
 
-    Path schemaAliasesFile() {
-        return schemaAliasesFile;
+    Path configFile() {
+        return configFile;
     }
 
     int jobs() {

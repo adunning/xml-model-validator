@@ -30,8 +30,20 @@ inputs:
     description: Number of parallel workers to use (0 = auto)
     required: false
     default: "0"
-  schema_aliases:
-    description: Optional path to a schema alias TSV file
+  config:
+    description: Optional path to a TOML validator config file containing schema aliases and xml-model rules
+    required: false
+  xml_model_rule_mode:
+    description: Optional inline xml-model rule mode for this run (fallback or replace)
+    required: false
+  xml_model_rule_directory:
+    description: Optional directory scope for the inline xml-model rule
+    required: false
+  xml_model_rule_extension:
+    description: Optional file extension scope for the inline xml-model rule; a leading period is optional
+    required: false
+  xml_model_declarations:
+    description: Optional newline-delimited xml-model declarations for one inline rule; repeat lines to validate against multiple schemas
     required: false
   fail_fast:
     description: Stop after the first file that fails validation
@@ -117,7 +129,11 @@ runs:
         XML_MODEL_VALIDATOR_INPUT_CHANGED_ONLY: ${{ inputs.changed_only }}
         XML_MODEL_VALIDATOR_INPUT_CHANGED_SOURCE: ${{ inputs.changed_source }}
         XML_MODEL_VALIDATOR_INPUT_JOBS: ${{ inputs.jobs }}
-        XML_MODEL_VALIDATOR_INPUT_SCHEMA_ALIASES: ${{ inputs.schema_aliases }}
+        XML_MODEL_VALIDATOR_INPUT_CONFIG: ${{ inputs.config }}
+        XML_MODEL_VALIDATOR_INPUT_XML_MODEL_RULE_MODE: ${{ inputs.xml_model_rule_mode }}
+        XML_MODEL_VALIDATOR_INPUT_XML_MODEL_RULE_DIRECTORY: ${{ inputs.xml_model_rule_directory }}
+        XML_MODEL_VALIDATOR_INPUT_XML_MODEL_RULE_EXTENSION: ${{ inputs.xml_model_rule_extension }}
+        XML_MODEL_VALIDATOR_INPUT_XML_MODEL_DECLARATIONS: ${{ inputs.xml_model_declarations }}
         XML_MODEL_VALIDATOR_INPUT_FAIL_FAST: ${{ inputs.fail_fast }}
         GH_TOKEN: ${{ github.token }}
       run: |
