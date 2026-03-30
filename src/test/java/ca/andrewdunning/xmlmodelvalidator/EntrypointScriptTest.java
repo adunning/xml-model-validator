@@ -147,6 +147,81 @@ final class EntrypointScriptTest {
     }
 
     @Test
+    void changedFilesOnlyFiltersManifestUsingInlineRuleExtensionWhenFileExtensionsAreOmitted() throws Exception {
+        Path capturedArgs = temporaryDirectory.resolve("args.txt");
+        Path environmentRoot = prepareEnvironment(
+                capturedArgs,
+                "changed/one.csl\nchanged/two.xml\nnotes/readme.md\n");
+
+        Process process = runEntrypoint(
+                environmentRoot,
+                Map.of(
+                        "XML_MODEL_VALIDATOR_INPUT_CHANGED_FILES_ONLY",
+                        "true",
+                        "XML_MODEL_VALIDATOR_INPUT_CHANGED_SOURCE",
+                        "git",
+                        "XML_MODEL_VALIDATOR_INPUT_XML_MODEL_RULE_EXTENSION",
+                        "csl",
+                        "XML_MODEL_VALIDATOR_INPUT_JOBS",
+                        "0",
+                        "GITHUB_EVENT_NAME",
+                        "workflow_dispatch",
+                        "GITHUB_SHA",
+                        "deadbeef"));
+
+        assertEquals(0, process.waitFor());
+        Path changedFileList = environmentRoot.resolve("runner-temp/xml-model-validator-changed-files.txt");
+        assertEquals(
+                List.of(
+                        "-jar",
+                        jarPath(environmentRoot).toString(),
+                        "--rule-extension",
+                        "csl",
+                        "-j",
+                        "0",
+                        "--files-from",
+                        changedFileList.toString()),
+                Files.readAllLines(capturedArgs, StandardCharsets.UTF_8));
+        assertEquals(
+                List.of("changed/one.csl", "changed/two.xml"),
+                Files.readAllLines(changedFileList, StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void changedFilesOnlySkipsWhenChangedFilesDoNotMatchConfiguredExtensions() throws Exception {
+        Path capturedArgs = temporaryDirectory.resolve("args.txt");
+        Path environmentRoot = prepareEnvironment(capturedArgs, "docs/readme.md\n");
+        Path githubOutput = temporaryDirectory.resolve("github-output.txt");
+
+        Process process = runEntrypoint(
+                environmentRoot,
+                Map.of(
+                        "XML_MODEL_VALIDATOR_INPUT_CHANGED_FILES_ONLY",
+                        "true",
+                        "XML_MODEL_VALIDATOR_INPUT_CHANGED_SOURCE",
+                        "git",
+                        "XML_MODEL_VALIDATOR_INPUT_FILE_EXTENSIONS",
+                        "csl",
+                        "XML_MODEL_VALIDATOR_INPUT_JOBS",
+                        "0",
+                        "GITHUB_EVENT_NAME",
+                        "workflow_dispatch",
+                        "GITHUB_SHA",
+                        "deadbeef",
+                        "GITHUB_OUTPUT",
+                        githubOutput.toString()));
+
+        assertEquals(0, process.waitFor());
+        assertTrue(Files.notExists(capturedArgs));
+        String stdout = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        String stderr = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertTrue(stdout.contains("::notice title=XML Validation::Validation skipped"));
+        assertTrue(stderr.contains("no changed files matched the configured extensions"));
+        String output = Files.readString(githubOutput, StandardCharsets.UTF_8);
+        assertTrue(output.contains("skipped=true"));
+    }
+
+    @Test
     void changedFilesOnlyWritesNoticeAndStepSummaryWhenNothingMatches() throws Exception {
         Path capturedArgs = temporaryDirectory.resolve("args.txt");
         Path environmentRoot = prepareEnvironment(capturedArgs, "");

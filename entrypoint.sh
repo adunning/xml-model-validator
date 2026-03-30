@@ -125,6 +125,61 @@ write_changed_files() {
   esac
 }
 
+normalize_extension_token() {
+  extension="$1"
+  extension="$(printf '%s' "${extension}" | tr '[:upper:]' '[:lower:]')"
+  case "${extension}" in
+    .*) printf '%s' "${extension}" ;;
+    *) printf '.%s' "${extension}" ;;
+  esac
+}
+
+effective_file_extensions() {
+  if [ -n "${XML_MODEL_VALIDATOR_INPUT_FILE_EXTENSIONS:-}" ]; then
+    printf '%s\n' "${XML_MODEL_VALIDATOR_INPUT_FILE_EXTENSIONS}" \
+      | tr ',[:space:]' '\n\n' \
+      | sed '/^$/d' \
+      | while IFS= read -r extension; do
+          normalize_extension_token "${extension}"
+        done
+    return
+  fi
+
+  printf '%s\n' ".xml"
+  if [ -n "${XML_MODEL_VALIDATOR_INPUT_XML_MODEL_RULE_EXTENSION:-}" ]; then
+    normalize_extension_token "${XML_MODEL_VALIDATOR_INPUT_XML_MODEL_RULE_EXTENSION}"
+  fi
+}
+
+effective_file_extensions_inline() {
+  effective_file_extensions | awk '!seen[$0]++' | paste -sd' ' -
+}
+
+filter_changed_files_by_extension() {
+  temp_filtered="${CHANGED_FILE_LIST}.filtered"
+  effective_extensions="$(effective_file_extensions_inline)"
+
+  awk -v extensions="${effective_extensions}" '
+    BEGIN {
+      split(extensions, values, " ")
+      for (extension_index in values) {
+        allowed[values[extension_index]] = 1
+      }
+    }
+    {
+      filename = tolower($0)
+      for (extension in allowed) {
+        if (extension != "" && length(filename) >= length(extension) && substr(filename, length(filename) - length(extension) + 1) == extension) {
+          print $0
+          next
+        }
+      }
+    }
+  ' "${CHANGED_FILE_LIST}" > "${temp_filtered}"
+
+  mv "${temp_filtered}" "${CHANGED_FILE_LIST}"
+}
+
 count_selection_inputs() {
   count=0
 
@@ -297,7 +352,7 @@ fi
 if [ -n "${XML_MODEL_VALIDATOR_INPUT_FILE_EXTENSIONS:-}" ]; then
   export XML_MODEL_VALIDATOR_SUMMARY_FILE_EXTENSIONS="${XML_MODEL_VALIDATOR_INPUT_FILE_EXTENSIONS}"
 else
-  export XML_MODEL_VALIDATOR_SUMMARY_FILE_EXTENSIONS=".xml"
+  export XML_MODEL_VALIDATOR_SUMMARY_FILE_EXTENSIONS="$(effective_file_extensions_inline)"
 fi
 
 if [ "${XML_MODEL_VALIDATOR_INPUT_FAIL_FAST:-false}" = "true" ]; then
@@ -333,6 +388,7 @@ EOF
 elif [ "${XML_MODEL_VALIDATOR_INPUT_CHANGED_FILES_ONLY:-false}" = "true" ]; then
   export XML_MODEL_VALIDATOR_SUMMARY_SELECTION="changed_files_only:${XML_MODEL_VALIDATOR_INPUT_CHANGED_SOURCE:-auto}"
   write_changed_files
+  filter_changed_files_by_extension
   if [ ! -s "${CHANGED_FILE_LIST}" ]; then
     write_skipped_summary_json
     persist_json_report

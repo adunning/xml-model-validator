@@ -33,7 +33,6 @@ inputs:
   file_extensions:
     description: Comma- or whitespace-separated file extensions to discover when scanning directories or changed files; a leading period is optional
     required: false
-    default: ".xml"
   changed_files_only:
     description: Validate only changed files with matching extensions from the current push or pull request
     required: false
