@@ -34,6 +34,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -41,11 +42,13 @@ import java.util.Set;
  */
 final class SchematronCache {
     private final Processor processor;
+    private final Map<Path, Optional<Path>> preparedSchemas;
     private final Map<Path, XsltExecutable> validators;
     private final XsltExecutable transpiler;
 
     SchematronCache(Processor processor) {
         this.processor = processor;
+        this.preparedSchemas = new HashMap<>();
         this.validators = new HashMap<>();
         this.transpiler = compileTranspiler(processor);
     }
@@ -55,25 +58,33 @@ final class SchematronCache {
      * needed.
      */
     synchronized Path prepare(Path schemaPath) throws IOException, ParserConfigurationException, TransformerException {
+        Path normalizedSchemaPath = schemaPath.toAbsolutePath().normalize();
+        Optional<Path> cached = preparedSchemas.get(normalizedSchemaPath);
+        if (cached != null) {
+            return cached.orElse(null);
+        }
         Files.createDirectories(ValidationSupport.SCHEMATRON_CACHE_DIR);
-        Document document = parseDocument(schemaPath);
+        Document document = parseDocument(normalizedSchemaPath);
         if (ValidationSupport.SCHEMATRON_NS.equals(document.getDocumentElement().getNamespaceURI())
                 && "schema".equals(document.getDocumentElement().getLocalName())) {
-            return schemaPath;
+            preparedSchemas.put(normalizedSchemaPath, Optional.of(normalizedSchemaPath));
+            return normalizedSchemaPath;
         }
         if (!ValidationSupport.RELAXNG_NS.equals(document.getDocumentElement().getNamespaceURI())
                 || !"grammar".equals(document.getDocumentElement().getLocalName())) {
-            throw new IOException("Unsupported Schematron source: " + schemaPath);
+            throw new IOException("Unsupported Schematron source: " + normalizedSchemaPath);
         }
 
         NodeList patterns = document.getElementsByTagNameNS(ValidationSupport.SCHEMATRON_NS, "pattern");
         if (patterns.getLength() == 0) {
+            preparedSchemas.put(normalizedSchemaPath, Optional.empty());
             return null;
         }
 
         Path output = ValidationSupport.SCHEMATRON_CACHE_DIR.resolve(
-                schemaPath.getFileName().toString() + "-" + sha256(schemaPath.toString()) + ".sch");
+                normalizedSchemaPath.getFileName().toString() + "-" + sha256(normalizedSchemaPath.toString()) + ".sch");
         if (Files.exists(output)) {
+            preparedSchemas.put(normalizedSchemaPath, Optional.of(output));
             return output;
         }
 
@@ -103,6 +114,7 @@ final class SchematronCache {
         try (OutputStream stream = Files.newOutputStream(output)) {
             transformer.transform(new DOMSource(extracted), new StreamResult(stream));
         }
+        preparedSchemas.put(normalizedSchemaPath, Optional.of(output));
         return output;
     }
 
@@ -110,18 +122,19 @@ final class SchematronCache {
      * Compiles and memoizes the SchXslt-generated validator stylesheet for a prepared schema.
      */
     synchronized XsltExecutable getValidator(Path schemaPath) throws SaxonApiException {
-        if (validators.containsKey(schemaPath)) {
-            return validators.get(schemaPath);
+        Path normalizedSchemaPath = schemaPath.toAbsolutePath().normalize();
+        if (validators.containsKey(normalizedSchemaPath)) {
+            return validators.get(normalizedSchemaPath);
         }
         DocumentBuilder builder = processor.newDocumentBuilder();
-        XdmNode schematron = builder.build(new StreamSource(schemaPath.toFile()));
+        XdmNode schematron = builder.build(new StreamSource(normalizedSchemaPath.toFile()));
         XdmDestination stylesheetDestination = new XdmDestination();
         Xslt30Transformer transformer = transpiler.load30();
         transformer.transform(schematron.asSource(), stylesheetDestination);
 
         XsltCompiler compiler = processor.newXsltCompiler();
         XsltExecutable validator = compiler.compile(stylesheetDestination.getXdmNode().asSource());
-        validators.put(schemaPath, validator);
+        validators.put(normalizedSchemaPath, validator);
         return validator;
     }
 
@@ -156,11 +169,32 @@ final class SchematronCache {
     private static DocumentBuilderFactory documentBuilderFactory() {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
+        factory.setXIncludeAware(false);
+        factory.setExpandEntityReferences(false);
         try {
             factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
         } catch (ParserConfigurationException ignored) {
         }
+        setFeature(factory, "http://apache.org/xml/features/disallow-doctype-decl", true);
+        setFeature(factory, "http://xml.org/sax/features/external-general-entities", false);
+        setFeature(factory, "http://xml.org/sax/features/external-parameter-entities", false);
+        setFeature(factory, "http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
         return factory;
+    }
+
+    private static void setFeature(DocumentBuilderFactory factory, String feature, boolean value) {
+        try {
+            factory.setFeature(feature, value);
+        } catch (ParserConfigurationException ignored) {
+        }
+    }
+
+    int cachedPreparedSchemaCount() {
+        return preparedSchemas.size();
+    }
+
+    int cachedValidatorCount() {
+        return validators.size();
     }
 
     private static String sha256(String value) {
