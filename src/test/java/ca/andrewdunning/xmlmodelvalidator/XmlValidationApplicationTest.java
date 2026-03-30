@@ -222,6 +222,8 @@ final class XmlValidationApplicationTest {
         assertEquals(1, exitCode);
         String stderr = stderrBuffer.toString(StandardCharsets.UTF_8);
         assertTrue(stderr.contains("No matching files found to validate"));
+        assertTrue(stderr.contains("directory:"));
+        assertTrue(stderr.contains(".csl"));
         assertTrue(stdoutBuffer.toString(StandardCharsets.UTF_8).isBlank());
     }
 

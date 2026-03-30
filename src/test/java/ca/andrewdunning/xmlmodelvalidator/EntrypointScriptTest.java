@@ -122,6 +122,8 @@ final class EntrypointScriptTest {
         assertEquals(1, process.waitFor());
         String stderr = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
         assertTrue(stderr.contains("choose only one of directory, files_from, files, or changed_files_only"));
+        assertTrue(stderr.contains("directory=docs"));
+        assertTrue(stderr.contains("files_from=manifest.txt"));
     }
 
     private Path prepareEnvironment(Path capturedArgs, String gitOutput) throws IOException {

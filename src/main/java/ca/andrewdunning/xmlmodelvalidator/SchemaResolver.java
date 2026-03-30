@@ -28,19 +28,31 @@ final class SchemaResolver {
     ResolvedSchemaSource resolveSource(String href, Path baseDirectory) {
         if (schemaAliases.containsKey(href)) {
             Path aliased = schemaAliases.get(href);
+            if (!Files.exists(aliased)) {
+                throw new IllegalArgumentException(
+                        "Schema alias '" + href + "' resolves to a missing file: " + aliased);
+            }
             return new ResolvedSchemaSource(aliased, aliased.toUri().toString());
         }
         if (href.startsWith("http://") || href.startsWith("https://")) {
             try {
                 return new ResolvedSchemaSource(remoteSchemaCache.fetch(href), href);
             } catch (IOException | InterruptedException exception) {
-                throw new IllegalArgumentException("Could not fetch remote schema URL: " + href, exception);
+                throw new IllegalArgumentException(
+                        "Could not fetch remote schema URL '" + href + "': " + exception.getMessage(),
+                        exception);
             }
         }
 
         Path candidate = baseDirectory.resolve(href).normalize().toAbsolutePath();
         if (!Files.exists(candidate)) {
-            throw new IllegalArgumentException("Resolved schema path does not exist: " + candidate);
+            throw new IllegalArgumentException(
+                    "Could not resolve schema reference '"
+                            + href
+                            + "' relative to "
+                            + baseDirectory.toAbsolutePath().normalize()
+                            + "; checked "
+                            + candidate);
         }
         return new ResolvedSchemaSource(candidate, candidate.toUri().toString());
     }
@@ -52,6 +64,10 @@ final class SchemaResolver {
     ResolvedSchemaSource resolveRelativeToSystemId(String href, String baseSystemId, Path fallbackBaseDirectory) {
         if (schemaAliases.containsKey(href)) {
             Path aliased = schemaAliases.get(href);
+            if (!Files.exists(aliased)) {
+                throw new IllegalArgumentException(
+                        "Schema alias '" + href + "' resolves to a missing file: " + aliased);
+            }
             return new ResolvedSchemaSource(aliased, aliased.toUri().toString());
         }
 
@@ -63,14 +79,24 @@ final class SchemaResolver {
                 try {
                     return new ResolvedSchemaSource(remoteSchemaCache.fetch(resolvedString), resolvedString);
                 } catch (IOException | InterruptedException exception) {
-                    throw new IllegalArgumentException("Could not fetch remote schema URL: " + resolvedString,
+                    throw new IllegalArgumentException(
+                            "Could not fetch remote schema URL '"
+                                    + resolvedString
+                                    + "': "
+                                    + exception.getMessage(),
                             exception);
                 }
             }
             if ("file".equalsIgnoreCase(resolved.getScheme())) {
                 Path path = Path.of(resolved).toAbsolutePath().normalize();
                 if (!Files.exists(path)) {
-                    throw new IllegalArgumentException("Resolved schema path does not exist: " + path);
+                    throw new IllegalArgumentException(
+                            "Could not resolve schema reference '"
+                                    + href
+                                    + "' from base system identifier "
+                                    + baseSystemId
+                                    + "; checked "
+                                    + path);
                 }
                 return new ResolvedSchemaSource(path, path.toUri().toString());
             }

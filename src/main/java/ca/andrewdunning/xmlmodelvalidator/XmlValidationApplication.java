@@ -169,7 +169,10 @@ public final class XmlValidationApplication {
                 return emitPlan(arguments, config, xmlModelRules, files);
             }
             if (files.isEmpty()) {
-                error.println("ERROR: No matching files found to validate.");
+                error.printf(
+                        "ERROR: No matching files found to validate for %s with extensions %s.%n",
+                        inputSourceDescription(arguments),
+                        String.join(", ", arguments.fileExtensions()));
                 return 1;
             }
 

@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 final class SchemaResolverTest {
@@ -47,7 +48,28 @@ final class SchemaResolverTest {
     void throwsForMissingLocalPath() {
         SchemaResolver resolver = new SchemaResolver(Map.of(), new RemoteSchemaCache());
 
-        assertThrows(IllegalArgumentException.class, () -> resolver.resolve("missing.rng", temporaryDirectory));
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> resolver.resolve("missing.rng", temporaryDirectory));
+
+        assertTrue(exception.getMessage().contains("missing.rng"));
+        assertTrue(exception.getMessage().contains(temporaryDirectory.toString()));
+        assertTrue(exception.getMessage().contains("checked"));
+    }
+
+    @Test
+    void throwsForAliasThatPointsToMissingFile() {
+        Path missing = temporaryDirectory.resolve("schemas/missing.rng");
+        SchemaResolver resolver = new SchemaResolver(
+                Map.of("https://example.com/schema.rng", missing),
+                new RemoteSchemaCache());
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> resolver.resolve("https://example.com/schema.rng", temporaryDirectory));
+
+        assertTrue(exception.getMessage().contains("Schema alias 'https://example.com/schema.rng'"));
+        assertTrue(exception.getMessage().contains(missing.toString()));
     }
 
     private Path write(String relativePath, String content) throws IOException {

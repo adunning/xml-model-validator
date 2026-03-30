@@ -142,6 +142,25 @@ count_selection_inputs() {
   printf '%s' "${count}"
 }
 
+describe_selection_inputs() {
+  selections=""
+
+  if [ -n "${XML_MODEL_VALIDATOR_INPUT_DIRECTORY:-}" ]; then
+    selections="${selections} directory=${XML_MODEL_VALIDATOR_INPUT_DIRECTORY}"
+  fi
+  if [ -n "${XML_MODEL_VALIDATOR_INPUT_FILES_FROM:-}" ]; then
+    selections="${selections} files_from=${XML_MODEL_VALIDATOR_INPUT_FILES_FROM}"
+  fi
+  if [ -n "${XML_MODEL_VALIDATOR_INPUT_FILES:-}" ]; then
+    selections="${selections} files=<multiline>"
+  fi
+  if [ "${XML_MODEL_VALIDATOR_INPUT_CHANGED_FILES_ONLY:-false}" = "true" ]; then
+    selections="${selections} changed_files_only=true"
+  fi
+
+  printf '%s' "${selections# }"
+}
+
 set -- java -jar "${JAR_PATH}"
 
 if [ -n "${XML_MODEL_VALIDATOR_INPUT_CONFIG:-}" ]; then
@@ -182,7 +201,7 @@ set -- "$@" -j "${XML_MODEL_VALIDATOR_INPUT_JOBS:-0}"
 
 selection_count="$(count_selection_inputs)"
 if [ "${selection_count}" -gt 1 ]; then
-  echo "XML Model Validator: choose only one of directory, files_from, files, or changed_files_only." >&2
+  echo "XML Model Validator: choose only one of directory, files_from, files, or changed_files_only. Received: $(describe_selection_inputs)." >&2
   exit 1
 fi
 

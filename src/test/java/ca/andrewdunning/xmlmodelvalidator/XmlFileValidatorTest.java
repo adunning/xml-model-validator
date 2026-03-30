@@ -325,6 +325,9 @@ final class XmlFileValidatorTest {
 
     assertFalse(result.ok());
     assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("Ambiguous xml-model rules")));
+    assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("2 rules tie at specificity")));
+    assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("mode=fallback")));
+    assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("mode=replace")));
   }
 
   @Test
@@ -386,6 +389,31 @@ final class XmlFileValidatorTest {
         "Expected replacement Relax NG validation to run");
     assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("status must be ok")),
         "Expected replacement Schematron validation to run");
+  }
+
+  @Test
+  void reportsConfiguredSchemaResolutionFailuresWithoutGenericWrapping() throws Exception {
+    Path xml = write("styles/document.csl", """
+        <?xml version="1.0"?>
+        <root/>
+        """);
+
+    ValidationResult result = validator(List.of(
+        new XmlModelRule(
+            temporaryDirectory.resolve("styles"),
+            ".csl",
+            XmlModelRuleMode.FALLBACK,
+            List.of(new XmlModelEntry(
+                "missing.rng",
+                ValidationSupport.RELAXNG_NS,
+                null,
+                null))))).validate(xml);
+
+    assertFalse(result.ok(), "Expected missing configured schema to fail validation");
+    assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("Could not resolve schema reference 'missing.rng'")));
+    assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains(temporaryDirectory.resolve("styles").toString())));
+    assertTrue(result.issues().stream().noneMatch(issue -> issue.message().contains("Validation error:")),
+        "Expected schema resolution failures to be reported directly");
   }
 
   private XmlFileValidator validator() {

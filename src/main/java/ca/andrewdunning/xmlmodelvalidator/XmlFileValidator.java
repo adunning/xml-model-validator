@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * Validates a single XML file by applying supported {@code xml-model}
@@ -110,6 +111,10 @@ final class XmlFileValidator {
 
             boolean hasErrors = issues.stream().anyMatch(issue -> !issue.warning());
             return new ValidationResult(file, !hasErrors, issues);
+        } catch (IllegalArgumentException exception) {
+            return ValidationResult.failed(
+                    file,
+                    new ValidationIssue(file, exception.getMessage(), null, null, false));
         } catch (Exception exception) {
             return ValidationResult.failed(
                     file,
@@ -154,7 +159,7 @@ final class XmlFileValidator {
     }
 
     private Optional<XmlModelRule> findXmlModelRule(Path file) {
-        XmlModelRule bestRule = null;
+        List<XmlModelRule> bestRules = new ArrayList<>();
         int bestSpecificity = Integer.MIN_VALUE;
         int bestPriority = Integer.MIN_VALUE;
         for (XmlModelRule rule : xmlModelRules) {
@@ -164,25 +169,32 @@ final class XmlFileValidator {
             int specificity = rule.specificity();
             if (specificity > bestSpecificity
                     || (specificity == bestSpecificity && rule.priority() > bestPriority)) {
-                bestRule = rule;
+                bestRules = new ArrayList<>(List.of(rule));
                 bestSpecificity = specificity;
                 bestPriority = rule.priority();
                 continue;
             }
             if (specificity == bestSpecificity
-                    && rule.priority() == bestPriority
-                    && bestRule != null) {
-                throw new IllegalStateException(
-                        "Ambiguous xml-model rules match "
-                                + file
-                                + ": ["
-                                + bestRule.describe()
-                                + "] and ["
-                                + rule.describe()
-                                + "]");
+                    && rule.priority() == bestPriority) {
+                bestRules.add(rule);
             }
         }
-        return Optional.ofNullable(bestRule);
+        if (bestRules.size() > 1) {
+            throw new IllegalStateException(
+                    "Ambiguous xml-model rules match "
+                            + file
+                            + ". "
+                            + bestRules.size()
+                            + " rules tie at specificity "
+                            + bestSpecificity
+                            + " and priority "
+                            + bestPriority
+                            + ": "
+                            + bestRules.stream()
+                                    .map(rule -> "[" + rule.describe() + "]")
+                                    .collect(Collectors.joining(", ")));
+        }
+        return bestRules.isEmpty() ? Optional.empty() : Optional.of(bestRules.getFirst());
     }
 
     private List<ValidationIssue> validateSchematron(Path schemaPath, Path xmlFile, String phase) throws Exception {
