@@ -84,6 +84,31 @@ final class XmlFileValidatorTest {
   }
 
   @Test
+  void cachesSchematronLocationXPathAcrossRepeatedValidations() throws Exception {
+    write("rules.sch", """
+        <schema xmlns="http://purl.oclc.org/dsdl/schematron" queryBinding="xslt2">
+          <pattern>
+            <rule context="root">
+              <assert test="child">root must have a child</assert>
+            </rule>
+          </pattern>
+        </schema>
+        """);
+    Path xml = write("document.xml", """
+        <?xml version="1.0"?>
+        <?xml-model href="rules.sch" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+        <root/>
+        """);
+    XmlFileValidator validator = validator();
+
+    validator.validate(xml);
+    assertEquals(1, validator.cachedLocationXPathCount());
+
+    validator.validate(xml);
+    assertEquals(1, validator.cachedLocationXPathCount());
+  }
+
+  @Test
   void honorsSchematronPhaseFromXmlModel() throws Exception {
     write("rules.sch", """
         <schema xmlns="http://purl.oclc.org/dsdl/schematron" queryBinding="xslt2">

@@ -7,9 +7,6 @@ import org.xml.sax.SAXParseException;
 import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.DefaultHandler;
 
-import javax.xml.XMLConstants;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParserFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -25,41 +22,22 @@ import java.util.regex.Pattern;
 final class XmlDocumentScanner {
     private static final String XSI_NS = "http://www.w3.org/2001/XMLSchema-instance";
     private static final Pattern QUOTED_TOKEN_PATTERN = Pattern.compile("\"([^\"\\r\\n]+)\"");
+    private static final SecureXmlReaderPool XML_READERS = new SecureXmlReaderPool();
 
     XmlDocumentScan scan(Path file) throws IOException {
         ScanHandler handler = new ScanHandler(file);
         try (InputStream inputStream = Files.newInputStream(file)) {
-            XMLReader reader = createReader(handler);
+            XMLReader reader = XML_READERS.reader();
+            reader.setContentHandler(handler);
+            reader.setErrorHandler(handler);
             InputSource inputSource = new InputSource(inputStream);
             inputSource.setSystemId(file.toUri().toString());
             reader.parse(inputSource);
             return handler.result();
         } catch (SAXParseException exception) {
             return handler.result(issueFrom(file, exception));
-        } catch (ParserConfigurationException | SAXException exception) {
+        } catch (SAXException exception) {
             throw new IOException("Could not scan XML document " + file, exception);
-        }
-    }
-
-    private static XMLReader createReader(ScanHandler handler) throws ParserConfigurationException, SAXException {
-        SAXParserFactory factory = SAXParserFactory.newInstance();
-        factory.setNamespaceAware(true);
-        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-        setFeature(factory, "http://xml.org/sax/features/external-general-entities", false);
-        setFeature(factory, "http://xml.org/sax/features/external-parameter-entities", false);
-        setFeature(factory, "http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-
-        XMLReader reader = factory.newSAXParser().getXMLReader();
-        reader.setContentHandler(handler);
-        reader.setErrorHandler(handler);
-        return reader;
-    }
-
-    private static void setFeature(SAXParserFactory factory, String feature, boolean value)
-            throws ParserConfigurationException, SAXException {
-        try {
-            factory.setFeature(feature, value);
-        } catch (ParserConfigurationException | SAXException ignored) {
         }
     }
 

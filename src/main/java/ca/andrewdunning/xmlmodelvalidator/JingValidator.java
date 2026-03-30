@@ -10,13 +10,9 @@ import com.thaiopensource.validate.rng.CompactSchemaReader;
 import com.thaiopensource.validate.rng.SAXSchemaReader;
 import org.xml.sax.ErrorHandler;
 import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 import org.xml.sax.XMLReader;
 
-import javax.xml.XMLConstants;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParserFactory;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,6 +26,7 @@ import java.util.regex.Pattern;
 final class JingValidator {
     private static final Pattern LEADING_SEVERITY_PATTERN = Pattern.compile("^(?i)(error|warning):\\s*");
     private static final Pattern QUOTED_TOKEN_PATTERN = Pattern.compile("\"([^\"\\r\\n]+)\"");
+    private static final SecureXmlReaderPool XML_READERS = new SecureXmlReaderPool();
 
     private final Map<Path, Schema> schemaCache = new HashMap<>();
 
@@ -42,7 +39,7 @@ final class JingValidator {
         CollectingErrorHandler errorHandler = new CollectingErrorHandler(xmlFile);
         Schema compiledSchema = loadSchema(normalizedSchema, errorHandler);
         Validator validator = compiledSchema.createValidator(instanceProperties(errorHandler));
-        XMLReader reader = createXmlReader();
+        XMLReader reader = XML_READERS.reader();
         reader.setContentHandler(validator.getContentHandler());
         reader.setDTDHandler(validator.getDTDHandler());
         reader.setErrorHandler(errorHandler);
@@ -73,24 +70,6 @@ final class JingValidator {
             return SAXSchemaReader.getInstance();
         }
         return new AutoSchemaReader();
-    }
-
-    private static XMLReader createXmlReader() throws ParserConfigurationException, SAXException {
-        SAXParserFactory factory = SAXParserFactory.newInstance();
-        factory.setNamespaceAware(true);
-        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-        setFeature(factory, "http://xml.org/sax/features/external-general-entities", false);
-        setFeature(factory, "http://xml.org/sax/features/external-parameter-entities", false);
-        setFeature(factory, "http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-        return factory.newSAXParser().getXMLReader();
-    }
-
-    private static void setFeature(SAXParserFactory factory, String feature, boolean value)
-            throws ParserConfigurationException, SAXException {
-        try {
-            factory.setFeature(feature, value);
-        } catch (ParserConfigurationException | SAXException ignored) {
-        }
     }
 
     private static com.thaiopensource.util.PropertyMap schemaProperties(ErrorHandler errorHandler) {
