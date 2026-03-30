@@ -81,6 +81,7 @@ public final class XmlValidationApplication {
             footerHeading = "%nExamples:%n",
             footer = {
                     "  xml-model-validator --directory path/to/xml",
+                    "  xml-model-validator --plan --directory path/to/xml",
                     "  find path/to/xml -name '*.xml' -print | xml-model-validator --files-from -",
                     "  xml-model-validator --format json path/to/a.xml path/to/b.xml",
                     "  xml-model-validator --directory styles --file-extensions csl --config .xml-validator/config.toml",
@@ -122,6 +123,9 @@ public final class XmlValidationApplication {
         @Option(names = "--fail-fast", description = "Stop after the first file that fails validation")
         private boolean failFast;
 
+        @Option(names = "--plan", description = "Print the resolved validation plan without running validation")
+        private boolean plan;
+
         @Option(names = "--format", description = "Output format: ${COMPLETION-CANDIDATES}")
         private OutputFormat format;
 
@@ -154,17 +158,19 @@ public final class XmlValidationApplication {
                         "Configured validator config file does not exist: " + arguments.configFile());
             }
 
-            List<Path> files = arguments.resolveFiles();
-            if (files.isEmpty()) {
-                error.println("ERROR: No matching files found to validate.");
-                return 1;
-            }
-
             ValidatorConfig config = ValidationSupport.loadConfig(arguments.configFile());
             List<XmlModelRule> xmlModelRules = new ArrayList<>(config.xmlModelRules());
             XmlModelRule resolvedInlineRule = buildInlineRule();
             if (resolvedInlineRule != null) {
                 xmlModelRules.add(resolvedInlineRule);
+            }
+            List<Path> files = arguments.resolveFiles();
+            if (plan) {
+                return emitPlan(arguments, config, xmlModelRules, files);
+            }
+            if (files.isEmpty()) {
+                error.println("ERROR: No matching files found to validate.");
+                return 1;
             }
 
             XmlValidationApplication application = new XmlValidationApplication(
@@ -175,6 +181,61 @@ public final class XmlValidationApplication {
                     output,
                     error);
             return application.run(arguments, files);
+        }
+
+        private int emitPlan(
+                ValidationArguments arguments,
+                ValidatorConfig config,
+                List<XmlModelRule> xmlModelRules,
+                List<Path> files) {
+            List<String> normalizedFiles = files.stream()
+                    .map(ValidationSupport::relativize)
+                    .toList();
+            List<String> ruleDescriptions = xmlModelRules.stream()
+                    .map(XmlModelRule::describe)
+                    .toList();
+            OutputFormat effectiveFormat = format == null
+                    ? OutputFormat.TEXT
+                    : format;
+            if (effectiveFormat == OutputFormat.JSON) {
+                JsonValidationReportWriter writer = new JsonValidationReportWriter();
+                output.println(writer.writePlan(
+                        inputSourceDescription(arguments),
+                        ValidationSupport.relativize(arguments.configFile()),
+                        arguments.fileExtensions(),
+                        arguments.jobs(),
+                        arguments.failFast(),
+                        config.schemaAliases().size(),
+                        ruleDescriptions,
+                        normalizedFiles));
+                return 0;
+            }
+
+            output.printf("Input source: %s%n", inputSourceDescription(arguments));
+            output.printf("Config file: %s%n", ValidationSupport.relativize(arguments.configFile()));
+            output.printf("File extensions: %s%n", String.join(", ", arguments.fileExtensions()));
+            output.printf("Jobs: %d%n", arguments.jobs());
+            output.printf("Fail fast: %s%n", arguments.failFast());
+            output.printf("Schema aliases: %d%n", config.schemaAliases().size());
+            output.printf("Rules (%d):%n", ruleDescriptions.size());
+            for (String ruleDescription : ruleDescriptions) {
+                output.printf("  %s%n", ruleDescription);
+            }
+            output.printf("Files (%d):%n", normalizedFiles.size());
+            for (String file : normalizedFiles) {
+                output.printf("  %s%n", file);
+            }
+            return 0;
+        }
+
+        private String inputSourceDescription(ValidationArguments arguments) {
+            if (arguments.directory() != null) {
+                return "directory:" + ValidationSupport.relativize(arguments.directory());
+            }
+            if (arguments.filesFrom() != null) {
+                return "files-from:" + arguments.filesFrom();
+            }
+            return "files";
         }
 
         private XmlModelRule buildInlineRule() throws Exception {

@@ -169,6 +169,22 @@ final class ValidationArguments {
         return configFile;
     }
 
+    Path directory() {
+        return directory;
+    }
+
+    Path filesFrom() {
+        return filesFrom;
+    }
+
+    List<Path> explicitFiles() {
+        return explicitFiles;
+    }
+
+    List<String> fileExtensions() {
+        return fileExtensions;
+    }
+
     int jobs() {
         return jobs;
     }

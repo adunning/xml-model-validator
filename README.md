@@ -366,6 +366,13 @@ Output formats:
 - if `--format` is omitted, the CLI defaults to `text` locally and `github`
   inside GitHub Actions
 
+Inspection mode:
+
+- `--plan` prints the resolved input source, config path, extensions, rules,
+  and file set without running validation
+- `--plan` succeeds even when the resolved file set is empty, so it can be used
+  to debug discovery
+
 Exit status:
 
 - `0` means validation succeeded
@@ -382,6 +389,7 @@ Run:
 
 ```bash
 java -jar target/xml-model-validator.jar --directory path/to/xml -j 0
+java -jar target/xml-model-validator.jar --plan --directory path/to/xml
 java -jar target/xml-model-validator.jar --verbose --directory path/to/xml -j 0
 find path/to/xml -name '*.xml' -print | java -jar target/xml-model-validator.jar --files-from - -j 0
 java -jar target/xml-model-validator.jar --files-from path/to/files.txt -j 0
@@ -406,6 +414,12 @@ Write a JSON report:
 
 ```bash
 java -jar target/xml-model-validator.jar --format json path/to/a.xml path/to/b.xml
+```
+
+Preview the full validation plan:
+
+```bash
+java -jar target/xml-model-validator.jar --plan --format json --directory path/to/xml
 ```
 
 Verify a published release artifact:

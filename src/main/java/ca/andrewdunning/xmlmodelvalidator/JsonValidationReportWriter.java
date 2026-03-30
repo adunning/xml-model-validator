@@ -44,6 +44,31 @@ final class JsonValidationReportWriter {
         }
     }
 
+    String writePlan(
+            String inputSource,
+            String configFile,
+            List<String> fileExtensions,
+            int jobs,
+            boolean failFast,
+            int schemaAliasCount,
+            List<String> rules,
+            List<String> files) {
+        try {
+            return JSON_MAPPER.writeValueAsString(new JsonPlan(
+                    inputSource,
+                    configFile,
+                    fileExtensions,
+                    jobs,
+                    failFast,
+                    schemaAliasCount,
+                    rules,
+                    files.size(),
+                    files));
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Could not serialize validation plan", exception);
+        }
+    }
+
     private record JsonReport(JsonSummary summary, List<JsonResult> results) {
     }
 
@@ -55,5 +80,17 @@ final class JsonValidationReportWriter {
 
     private record JsonIssue(String severity, String message, Integer line, Integer column, Integer endLine,
             Integer endColumn) {
+    }
+
+    private record JsonPlan(
+            String inputSource,
+            String configFile,
+            List<String> fileExtensions,
+            int jobs,
+            boolean failFast,
+            int schemaAliasCount,
+            List<String> rules,
+            int fileCount,
+            List<String> files) {
     }
 }

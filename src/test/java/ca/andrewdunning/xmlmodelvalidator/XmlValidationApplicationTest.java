@@ -152,6 +152,64 @@ final class XmlValidationApplicationTest {
     }
 
     @Test
+    void executePrintsPlanWithoutRunningValidation() throws Exception {
+        writeXml("planned.xml", "<root/>");
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+
+        int exitCode = XmlValidationApplication.execute(
+                new String[] { "--plan", "--directory", temporaryDirectory.toString() },
+                new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+
+        assertEquals(0, exitCode);
+        String stdout = stdoutBuffer.toString(StandardCharsets.UTF_8);
+        assertTrue(stdout.contains("Input source: directory:"));
+        assertTrue(stdout.contains("Config file:"));
+        assertTrue(stdout.contains("File extensions: .xml"));
+        assertTrue(stdout.contains("Rules (0):"));
+        assertTrue(stdout.contains("Files (1):"));
+        assertTrue(stdout.contains("planned.xml"));
+        assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).isBlank());
+    }
+
+    @Test
+    void executePrintsJsonPlanWhenRequested() throws Exception {
+        writeXml("planned.xml", "<root/>");
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+
+        int exitCode = XmlValidationApplication.execute(
+                new String[] { "--plan", "--format", "json", "--directory", temporaryDirectory.toString() },
+                new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+
+        assertEquals(0, exitCode);
+        String stdout = stdoutBuffer.toString(StandardCharsets.UTF_8);
+        assertTrue(stdout.contains("\"inputSource\":\"directory:"));
+        assertTrue(stdout.contains("\"fileExtensions\":[\".xml\"]"));
+        assertTrue(stdout.contains("\"fileCount\":1"));
+        assertTrue(stdout.contains("planned.xml"));
+        assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).isBlank());
+    }
+
+    @Test
+    void executePrintsPlanForEmptyFileSet() throws Exception {
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+
+        int exitCode = XmlValidationApplication.execute(
+                new String[] { "--plan", "--directory", temporaryDirectory.toString(), "--file-extensions", "csl" },
+                new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+
+        assertEquals(0, exitCode);
+        String stdout = stdoutBuffer.toString(StandardCharsets.UTF_8);
+        assertTrue(stdout.contains("Files (0):"));
+        assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).isBlank());
+    }
+
+    @Test
     void executeReturnsOneWhenNoMatchingFilesAreFound() throws Exception {
         ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
         ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
@@ -213,6 +271,7 @@ final class XmlValidationApplicationTest {
         String stdout = stdoutBuffer.toString(StandardCharsets.UTF_8);
         assertTrue(stdout.contains("Usage: xml-model-validator"));
         assertTrue(stdout.contains("Examples:"));
+        assertTrue(stdout.contains("--plan"));
         assertTrue(stdout.contains("--files-from -"));
         assertTrue(stdout.contains("Exactly one input source is required"));
         assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).isBlank());
