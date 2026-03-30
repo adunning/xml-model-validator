@@ -65,31 +65,73 @@ Validate XML files stored with a non-`.xml` extension:
     file_extensions: csl
 ```
 
-Validate files that omit inline `xml-model` declarations by applying a fallback
-rule from repository config:
+## Common patterns
+
+Most users will probably want to use only the GitHub Action inputs. Use a
+repository config file when you need more than one rule, want stable
+repository-wide configuration, or want different schema sets for different
+directories.
+
+Apply a fallback remote Relax NG schema to files in one directory with only
+Action inputs:
 
 ```yaml
 - uses: adunning/xml-model-validator@v1
   with:
     directory: styles
     file_extensions: csl
-    config: .xml-validator/config.toml
-```
-
-Validate a directory with one inline Action rule instead of a repository config
-file:
-
-```yaml
-- uses: adunning/xml-model-validator@v1
-  with:
-    directory: styles
-    file_extensions: csl
-    xml_model_rule_mode: replace
+    xml_model_rule_mode: fallback
     xml_model_rule_directory: styles
     xml_model_rule_extension: csl
     xml_model_declarations: |
-      href="styles/schema.rng" schematypens="http://relaxng.org/ns/structure/1.0"
-      href="styles/rules.sch" schematypens="http://purl.oclc.org/dsdl/schematron"
+      href="https://example.org/schema/styles.rng" schematypens="http://relaxng.org/ns/structure/1.0"
+      href="https://example.org/schema/styles.sch" schematypens="http://purl.oclc.org/dsdl/schematron"
+```
+
+Replace inline declarations for one directory with remote Relax NG and
+Schematron rules with only Action inputs:
+
+```yaml
+- uses: adunning/xml-model-validator@v1
+  with:
+    directory: tei
+    file_extensions: xml
+    xml_model_rule_mode: replace
+    xml_model_rule_directory: tei
+    xml_model_rule_extension: xml
+    xml_model_declarations: |
+      href="https://example.org/schema/tei.rng" schematypens="http://relaxng.org/ns/structure/1.0"
+      href="https://example.org/schema/tei.sch" schematypens="http://purl.oclc.org/dsdl/schematron"
+```
+
+Use a repository config file when you need multiple rules or want to pin a
+remote schema URL to a local file:
+
+```toml
+[schema_aliases]
+"https://example.org/schema/styles.rng" = "schemas/styles.rng"
+
+[[xml_model_rules]]
+directory = "styles"
+extension = "csl"
+mode = "fallback"
+
+[[xml_model_rules.declarations]]
+href = "https://example.org/schema/styles.rng"
+schematypens = "http://relaxng.org/ns/structure/1.0"
+
+[[xml_model_rules]]
+directory = "tei"
+extension = "xml"
+mode = "replace"
+
+[[xml_model_rules.declarations]]
+href = "https://example.org/schema/tei.rng"
+schematypens = "http://relaxng.org/ns/structure/1.0"
+
+[[xml_model_rules.declarations]]
+href = "https://example.org/schema/tei.sch"
+schematypens = "http://purl.oclc.org/dsdl/schematron"
 ```
 
 Validate only the XML files changed by the current push or pull request:
@@ -136,7 +178,8 @@ Validate explicit files and stop on the first failure:
 - `xml_model_rule_extension`: optional file extension scope for the inline
   `xml-model` rule; a leading period is optional
 - `xml_model_declarations`: optional newline-delimited declarations for one
-  inline `xml-model` rule
+  inline `xml-model` rule; remote schema URLs are supported and are expected to
+  be the most common case
 - `fail_fast`: stop after the first failing file
 
 If you do not provide `files`, `file_list`, `directory`, or `changed_only`,
@@ -154,7 +197,7 @@ When `changed_only: true`:
 - If no changed files with matching extensions are found, the action reports that validation was
   skipped and exits successfully.
 
-## Configuration
+## Configuration Reference
 
 For repositories that need local schema aliases or rule-based `xml-model`
 behaviour, provide `.xml-validator/config.toml`. Use `--config` or the
@@ -172,7 +215,7 @@ extension = "csl"
 mode = "fallback"
 
 [[xml_model_rules.declarations]]
-href = "styles/schema.rng"
+href = "https://example.org/schema/styles.rng"
 schematypens = "http://relaxng.org/ns/structure/1.0"
 
 [[xml_model_rules]]
@@ -181,11 +224,11 @@ extension = "xml"
 mode = "replace"
 
 [[xml_model_rules.declarations]]
-href = "../schemas/tei.rng"
+href = "schemas/tei.rng"
 schematypens = "http://relaxng.org/ns/structure/1.0"
 
 [[xml_model_rules.declarations]]
-href = "../schemas/tei.sch"
+href = "schemas/tei.sch"
 schematypens = "http://purl.oclc.org/dsdl/schematron"
 ```
 
@@ -195,8 +238,10 @@ file.
 `xml_model_rules` lets you define different schema sets for different
 directories or extensions. Rule `directory` values are resolved relative to the
 repository root. Rule `extension` values may be written with or without a
-leading period. Declaration `href` values in config and Action-supplied rules
-are also resolved from the repository root.
+leading period. Declaration `href` values may be remote `http://` or `https://`
+URLs, repository-root-relative local paths, or absolute local paths. Local
+declaration `href` values in config and Action-supplied rules are resolved from
+the repository root.
 
 Each rule can match by directory and/or extension, and can either:
 
@@ -214,6 +259,9 @@ resolution against the XML file itself.
 The GitHub Action’s inline override inputs define only one rule per run. Use
 the TOML config file when you need multiple directory-specific or
 extension-specific rules in the same workflow.
+
+Configured remote schema URLs use the same download and cache behaviour as
+remote schema URLs referenced from inline `xml-model` processing instructions.
 
 Each declaration supports the same fields the validator reads from inline
 `xml-model` instructions:
