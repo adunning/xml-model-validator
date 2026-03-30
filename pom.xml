@@ -39,6 +39,7 @@
     <maven.compiler.release>25</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <jing.version>20241231</jing.version>
+    <trang.version>20241231</trang.version>
     <saxon.version>12.9</saxon.version>
     <schxslt2.version>1.9</schxslt2.version>
     <picocli.version>4.7.7</picocli.version>
@@ -53,6 +54,11 @@
       <groupId>org.relaxng</groupId>
       <artifactId>jing</artifactId>
       <version>${jing.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.relaxng</groupId>
+      <artifactId>trang</artifactId>
+      <version>${trang.version}</version>
     </dependency>
     <dependency>
       <groupId>net.sf.saxon</groupId>

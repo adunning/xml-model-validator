@@ -35,12 +35,36 @@ final class SchematronCacheTest {
                 """);
         SchematronCache cache = new SchematronCache(new Processor(false));
 
-        Path first = cache.prepare(schema);
-        Path second = cache.prepare(schema);
+        ResolvedSchemaSource source = new ResolvedSchemaSource(schema, schema.toUri().toString());
+        Path first = cache.prepare(source);
+        Path second = cache.prepare(source);
 
         assertNotNull(first);
         assertEquals(first, second);
         assertEquals(1, cache.cachedPreparedSchemaCount());
+    }
+
+    @Test
+    void convertsCompactSyntaxBeforeExtractingEmbeddedSchematron() throws Exception {
+        Path schema = write("schema.rnc", """
+                namespace sch = "http://purl.oclc.org/dsdl/schematron"
+                start = element root { empty }
+                  >> sch:pattern [
+                       sch:rule [
+                         context = "root"
+                         sch:assert [
+                           test = "@id"
+                           "root must have an id"
+                         ]
+                       ]
+                     ]
+                """);
+        SchematronCache cache = new SchematronCache(new Processor(false));
+
+        Path prepared = cache.prepare(new ResolvedSchemaSource(schema, schema.toUri().toString()));
+
+        assertNotNull(prepared);
+        assertEquals(".sch", prepared.getFileName().toString().substring(prepared.getFileName().toString().length() - 4));
     }
 
     @Test

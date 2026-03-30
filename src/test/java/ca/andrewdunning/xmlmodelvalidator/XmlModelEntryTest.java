@@ -15,7 +15,7 @@ final class XmlModelEntryTest {
                 "");
 
         assertTrue(entry.matches(SchemaKind.RELAX_NG));
-        assertFalse(entry.supportsEmbeddedSchematron());
+        assertTrue(entry.supportsEmbeddedSchematron());
     }
 
     @Test
@@ -39,11 +39,11 @@ final class XmlModelEntryTest {
 
         assertTrue(entry.matches(SchemaKind.RELAX_NG));
         assertFalse(entry.matches(SchemaKind.SCHEMATRON));
-        assertFalse(entry.supportsEmbeddedSchematron());
+        assertTrue(entry.supportsEmbeddedSchematron());
     }
 
     @Test
-    void recognizesEmbeddedSchematronOnlyForRelaxNgXmlSyntax() {
+    void recognizesEmbeddedSchematronForRelaxNgXmlSyntax() {
         XmlModelEntry entry = new XmlModelEntry(
                 "schema.rng",
                 ValidationSupport.RELAXNG_NS,

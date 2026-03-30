@@ -102,11 +102,11 @@ final class XmlFileValidator {
             for (ResolvedSchema schema : relaxNgSchemas) {
                 issues.addAll(jingValidator.validate(schema.source(), file));
                 if (schema.entry().supportsEmbeddedSchematron()) {
-                    issues.addAll(validateSchematron(schema.source().path(), file, schema.entry().phase()));
+                    issues.addAll(validateSchematron(schema.source(), file, schema.entry().phase()));
                 }
             }
             for (ResolvedSchema schema : schematronSchemas) {
-                issues.addAll(validateSchematron(schema.source().path(), file, schema.entry().phase()));
+                issues.addAll(validateSchematron(schema.source(), file, schema.entry().phase()));
             }
 
             boolean hasErrors = issues.stream().anyMatch(issue -> !issue.warning());
@@ -197,13 +197,8 @@ final class XmlFileValidator {
         return bestRules.isEmpty() ? Optional.empty() : Optional.of(bestRules.getFirst());
     }
 
-    private List<ValidationIssue> validateSchematron(Path schemaPath, Path xmlFile, String phase) throws Exception {
-        String filename = schemaPath.getFileName().toString().toLowerCase(Locale.ROOT);
-        if (filename.endsWith(".rnc")) {
-            throw new IllegalArgumentException(
-                    "Schematron validation does not support RELAX NG Compact Syntax schema sources: " + schemaPath);
-        }
-        Path preparedSchema = schematronCache.prepare(schemaPath);
+    private List<ValidationIssue> validateSchematron(ResolvedSchemaSource schemaSource, Path xmlFile, String phase) throws Exception {
+        Path preparedSchema = schematronCache.prepare(schemaSource);
         if (preparedSchema == null) {
             return List.of();
         }

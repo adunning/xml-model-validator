@@ -28,7 +28,7 @@ The validator:
 - validates Schematron with Saxon and SchXslt2
 - supports Relax NG and Schematron `xml-model` declarations in the same file
 - supports Relax NG XML syntax (`.rng`) and RELAX NG Compact Syntax (`.rnc`)
-- supports standalone Schematron files and embedded Schematron inside Relax NG XML syntax schemas
+- supports standalone Schematron files and embedded Schematron inside Relax NG schemas, including `.rnc` via conversion to `.rng`
 - supports Schematron `phase` selection from the `xml-model` processing instruction
 - recognizes common schema hints from `schematypens`, `type`, and schema file extensions
 - follows remote schema URLs and caches downloaded schemas in the workspace
@@ -466,6 +466,11 @@ The action is intentionally focused on the schema types most commonly used with
 - RELAX NG Compact Syntax
 - standalone Schematron
 - embedded Schematron in Relax NG XML syntax schemas
+- embedded Schematron in RELAX NG Compact Syntax schemas via conversion to XML syntax
+
+Embedded Schematron extraction follows Relax NG `include` and `externalRef`
+links for local and remote schemas. Relative references in remote `.rnc`
+schemas are resolved against the original remote URL before conversion.
 
 It does not currently attempt to validate every schema language that `xml-model`
 can theoretically reference.

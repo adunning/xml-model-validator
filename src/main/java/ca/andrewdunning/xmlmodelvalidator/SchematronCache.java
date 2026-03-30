@@ -1,5 +1,6 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
+import com.thaiopensource.relaxng.translate.Driver;
 import net.sf.saxon.s9api.DocumentBuilder;
 import net.sf.saxon.s9api.Processor;
 import net.sf.saxon.s9api.SaxonApiException;
@@ -33,6 +34,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -45,40 +47,38 @@ final class SchematronCache {
     private final Map<Path, Optional<Path>> preparedSchemas;
     private final Map<Path, XsltExecutable> validators;
     private final XsltExecutable transpiler;
+    private final RemoteSchemaCache remoteSchemaCache;
 
     SchematronCache(Processor processor) {
         this.processor = processor;
         this.preparedSchemas = new HashMap<>();
         this.validators = new HashMap<>();
         this.transpiler = compileTranspiler(processor);
+        this.remoteSchemaCache = new RemoteSchemaCache();
     }
 
     /**
      * Returns a standalone Schematron schema, extracting embedded Schematron rules from Relax NG when
      * needed.
      */
-    synchronized Path prepare(Path schemaPath) throws IOException, ParserConfigurationException, TransformerException {
-        Path normalizedSchemaPath = schemaPath.toAbsolutePath().normalize();
+    synchronized Path prepare(ResolvedSchemaSource schemaSource) throws IOException, ParserConfigurationException, TransformerException {
+        Path normalizedSchemaPath = schemaSource.path().toAbsolutePath().normalize();
         Optional<Path> cached = preparedSchemas.get(normalizedSchemaPath);
         if (cached != null) {
             return cached.orElse(null);
         }
         Files.createDirectories(ValidationSupport.SCHEMATRON_CACHE_DIR);
-        Document document = parseDocument(normalizedSchemaPath);
+        ResolvedSchemaSource schematronSource = prepareSchematronSource(
+                new ResolvedSchemaSource(normalizedSchemaPath, schemaSource.systemId()));
+        Document document = parseDocument(schematronSource.path());
         if (ValidationSupport.SCHEMATRON_NS.equals(document.getDocumentElement().getNamespaceURI())
                 && "schema".equals(document.getDocumentElement().getLocalName())) {
-            preparedSchemas.put(normalizedSchemaPath, Optional.of(normalizedSchemaPath));
-            return normalizedSchemaPath;
+            preparedSchemas.put(normalizedSchemaPath, Optional.of(schematronSource.path()));
+            return schematronSource.path();
         }
         if (!ValidationSupport.RELAXNG_NS.equals(document.getDocumentElement().getNamespaceURI())
                 || !"grammar".equals(document.getDocumentElement().getLocalName())) {
-            throw new IOException("Unsupported Schematron source: " + normalizedSchemaPath);
-        }
-
-        NodeList patterns = document.getElementsByTagNameNS(ValidationSupport.SCHEMATRON_NS, "pattern");
-        if (patterns.getLength() == 0) {
-            preparedSchemas.put(normalizedSchemaPath, Optional.empty());
-            return null;
+            throw new IOException("Unsupported Schematron source: " + schematronSource.path());
         }
 
         Path output = ValidationSupport.SCHEMATRON_CACHE_DIR.resolve(
@@ -92,21 +92,11 @@ final class SchematronCache {
         Element root = extracted.createElementNS(ValidationSupport.SCHEMATRON_NS, "schema");
         root.setAttribute("queryBinding", "xslt2");
         extracted.appendChild(root);
-
-        NodeList namespaces = document.getElementsByTagNameNS(ValidationSupport.SCHEMATRON_NS, "ns");
-        Set<String> seen = new HashSet<>();
-        for (int index = 0; index < namespaces.getLength(); index += 1) {
-            Element namespace = (Element) namespaces.item(index);
-            String prefix = namespace.getAttribute("prefix");
-            if (prefix.isBlank() || seen.contains(prefix)) {
-                continue;
-            }
-            seen.add(prefix);
-            root.appendChild(extracted.importNode(namespace, true));
-        }
-
-        for (int index = 0; index < patterns.getLength(); index += 1) {
-            root.appendChild(extracted.importNode(patterns.item(index), true));
+        ExtractionState extractionState = new ExtractionState(extracted, root);
+        appendSchematronFragments(schematronSource, extractionState);
+        if (!extractionState.foundPattern()) {
+            preparedSchemas.put(normalizedSchemaPath, Optional.empty());
+            return null;
         }
 
         Transformer transformer = TransformerFactory.newInstance().newTransformer();
@@ -116,6 +106,106 @@ final class SchematronCache {
         }
         preparedSchemas.put(normalizedSchemaPath, Optional.of(output));
         return output;
+    }
+
+    private void appendSchematronFragments(ResolvedSchemaSource schemaSource, ExtractionState extractionState)
+            throws IOException, ParserConfigurationException {
+        if (!extractionState.markVisited(schemaSource.systemId())) {
+            return;
+        }
+
+        Document document = parseDocument(schemaSource.path());
+        if (!ValidationSupport.RELAXNG_NS.equals(document.getDocumentElement().getNamespaceURI())
+                || !"grammar".equals(document.getDocumentElement().getLocalName())) {
+            return;
+        }
+
+        NodeList namespaces = document.getElementsByTagNameNS(ValidationSupport.SCHEMATRON_NS, "ns");
+        for (int index = 0; index < namespaces.getLength(); index += 1) {
+            Element namespace = (Element) namespaces.item(index);
+            extractionState.appendNamespace(namespace);
+        }
+
+        NodeList patterns = document.getElementsByTagNameNS(ValidationSupport.SCHEMATRON_NS, "pattern");
+        for (int index = 0; index < patterns.getLength(); index += 1) {
+            extractionState.appendPattern((Element) patterns.item(index));
+        }
+
+        NodeList includes = document.getElementsByTagNameNS(ValidationSupport.RELAXNG_NS, "include");
+        for (int index = 0; index < includes.getLength(); index += 1) {
+            String href = ((Element) includes.item(index)).getAttribute("href");
+            if (href != null && !href.isBlank()) {
+                appendSchematronFragments(prepareSchematronSource(resolveRelativeSource(href, schemaSource)), extractionState);
+            }
+        }
+
+        NodeList externalRefs = document.getElementsByTagNameNS(ValidationSupport.RELAXNG_NS, "externalRef");
+        for (int index = 0; index < externalRefs.getLength(); index += 1) {
+            String href = ((Element) externalRefs.item(index)).getAttribute("href");
+            if (href != null && !href.isBlank()) {
+                appendSchematronFragments(prepareSchematronSource(resolveRelativeSource(href, schemaSource)), extractionState);
+            }
+        }
+    }
+
+    private ResolvedSchemaSource prepareSchematronSource(ResolvedSchemaSource schemaSource) throws IOException {
+        String filename = schemaSource.path().getFileName().toString().toLowerCase(Locale.ROOT);
+        if (!filename.endsWith(".rnc")) {
+            return schemaSource;
+        }
+
+        Path output = ValidationSupport.SCHEMATRON_CACHE_DIR.resolve(
+                schemaSource.path().getFileName().toString() + "-" + sha256(schemaSource.systemId()) + ".rng");
+        if (Files.exists(output)) {
+            return new ResolvedSchemaSource(output, schemaSource.systemId());
+        }
+
+        Driver driver = new Driver();
+        int exitCode = driver.run(new String[] {
+                "-I", "rnc",
+                "-O", "rng",
+                schemaSource.systemId(),
+                output.toString()
+        });
+        if (exitCode != 0 || !Files.exists(output)) {
+            throw new IOException("Could not convert RELAX NG Compact Syntax schema to XML syntax: " + schemaSource.systemId());
+        }
+        return new ResolvedSchemaSource(output, schemaSource.systemId());
+    }
+
+    private ResolvedSchemaSource resolveRelativeSource(String href, ResolvedSchemaSource baseSource) throws IOException {
+        String effectiveHref = href;
+        String baseSystemId = baseSource.systemId();
+        if (baseSystemId != null
+                && baseSystemId.toLowerCase(Locale.ROOT).endsWith(".rnc")
+                && href.toLowerCase(Locale.ROOT).endsWith(".rng")) {
+            effectiveHref = href.substring(0, href.length() - 4) + ".rnc";
+        }
+
+        if (baseSystemId != null && !baseSystemId.isBlank()) {
+            java.net.URI resolved = java.net.URI.create(baseSystemId).resolve(effectiveHref);
+            String resolvedString = resolved.toString();
+            if (resolvedString.startsWith("http://") || resolvedString.startsWith("https://")) {
+                try {
+                    return new ResolvedSchemaSource(remoteSchemaCache.fetch(resolvedString), resolvedString);
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("Interrupted while fetching schema: " + resolvedString, exception);
+                }
+            }
+            if ("file".equalsIgnoreCase(resolved.getScheme())) {
+                Path resolvedPath = Path.of(resolved).toAbsolutePath().normalize();
+                if (Files.exists(resolvedPath)) {
+                    return new ResolvedSchemaSource(resolvedPath, resolvedPath.toUri().toString());
+                }
+            }
+        }
+
+        Path resolvedPath = baseSource.path().getParent().resolve(effectiveHref).normalize().toAbsolutePath();
+        if (!Files.exists(resolvedPath)) {
+            throw new IOException("Could not resolve included schema reference '" + effectiveHref + "' from " + baseSource.systemId());
+        }
+        return new ResolvedSchemaSource(resolvedPath, resolvedPath.toUri().toString());
     }
 
     /**
@@ -204,6 +294,42 @@ final class SchematronCache {
             return HexFormat.of().formatHex(bytes, 0, 8);
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException(exception);
+        }
+    }
+
+    private static final class ExtractionState {
+        private final Document document;
+        private final Element root;
+        private final Set<String> seenNamespaces = new HashSet<>();
+        private final Set<String> visitedSystemIds = new HashSet<>();
+        private boolean foundPattern;
+
+        private ExtractionState(Document document, Element root) {
+            this.document = document;
+            this.root = root;
+        }
+
+        private boolean markVisited(String systemId) {
+            return visitedSystemIds.add(systemId);
+        }
+
+        private void appendNamespace(Element namespace) {
+            String prefix = namespace.getAttribute("prefix");
+            String uri = namespace.getAttribute("uri");
+            String key = prefix + "\n" + uri;
+            if (prefix.isBlank() || !seenNamespaces.add(key)) {
+                return;
+            }
+            root.appendChild(document.importNode(namespace, true));
+        }
+
+        private void appendPattern(Element pattern) {
+            foundPattern = true;
+            root.appendChild(document.importNode(pattern, true));
+        }
+
+        private boolean foundPattern() {
+            return foundPattern;
         }
     }
 }

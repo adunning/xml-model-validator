@@ -14,10 +14,11 @@ record XmlModelEntry(String href, String schemaTypeNamespace, String type, Strin
     }
 
     /**
-     * Embedded Schematron is defined for Relax NG XML syntax, not compact syntax.
+     * Embedded Schematron can be extracted from Relax NG schemas after compact syntax has been
+     * converted to XML syntax.
      */
     boolean supportsEmbeddedSchematron() {
-        return isRelaxNg() && !isCompactRelaxNg();
+        return isRelaxNg();
     }
 
     boolean matches(SchemaKind schemaKind) {
@@ -42,10 +43,6 @@ record XmlModelEntry(String href, String schemaTypeNamespace, String type, Strin
                 || hasExtension(".sch")
                 || hasExtension(".schematron")
                 || type.toLowerCase(Locale.ROOT).contains("schematron");
-    }
-
-    private boolean isCompactRelaxNg() {
-        return hasExtension(".rnc") || type.toLowerCase(Locale.ROOT).contains("compact");
     }
 
     private boolean hasExtension(String extension) {

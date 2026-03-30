@@ -119,6 +119,57 @@ final class SchemaResolutionTest {
     }
 
     @Test
+    void validatesEmbeddedSchematronUsingRemoteCompactSchemaWithRelativeInclude() throws Exception {
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        try {
+            server.createContext("/schemas/main.rnc", exchange -> {
+                byte[] body = """
+                        include "child.rnc"
+                        """.stripIndent().getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().add("Content-Type", "text/plain; charset=utf-8");
+                exchange.sendResponseHeaders(200, body.length);
+                try (OutputStream outputStream = exchange.getResponseBody()) {
+                    outputStream.write(body);
+                }
+            });
+            server.createContext("/schemas/child.rnc", exchange -> {
+                byte[] body = """
+                        namespace sch = "http://purl.oclc.org/dsdl/schematron"
+                        start = element root { empty }
+                          >> sch:pattern [
+                               sch:rule [
+                                 context = "root"
+                                 sch:assert [
+                                   test = "@id"
+                                   "root must have an id"
+                                 ]
+                               ]
+                             ]
+                        """.stripIndent().getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().add("Content-Type", "text/plain; charset=utf-8");
+                exchange.sendResponseHeaders(200, body.length);
+                try (OutputStream outputStream = exchange.getResponseBody()) {
+                    outputStream.write(body);
+                }
+            });
+            server.start();
+
+            Path xml = write("document.xml", """
+                    <?xml version="1.0"?>
+                    <?xml-model href="%s" schematypens="http://relaxng.org/ns/structure/1.0"?>
+                    <root/>
+                    """.formatted("http://127.0.0.1:" + server.getAddress().getPort() + "/schemas/main.rnc"));
+
+            ValidationResult result = new XmlFileValidator(Map.of()).validate(xml);
+
+            assertFalse(result.ok(), "Expected embedded Schematron from remote compact syntax to fail");
+            assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("root must have an id")));
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void reportsRemoteSchemaHttpFailure() throws Exception {
         HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
         try {
