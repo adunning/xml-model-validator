@@ -125,6 +125,36 @@ jobs:
           set -euo pipefail
           test "${{ steps.conflicting-selectors.outcome }}" = "failure"
 
+      - name: Smoke Test changed_files_only for Push and Pull Request
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tmpdir="$(mktemp -d)"
+          repo="${tmpdir}/repo"
+          mkdir -p "${repo}"
+          cd "${repo}"
+          git init -q
+          git config user.name "CI"
+          git config user.email "ci@example.com"
+
+          cat > schema.rng <<'EOF'
+          <grammar xmlns="http://relaxng.org/ns/structure/1.0">
+            <start>
+              <element name="root">
+                <empty/>
+              </element>
+            </start>
+          </grammar>
+          EOF
+          cat > valid.xml <<'EOF'
+          <?xml version="1.0"?>
+          <?xml-model href="schema.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+          <root/>
+          EOF
+          git add schema.rng valid.xml
+          git commit -qm "Base XML"
+
           cat > "${repo}/changed.xml" <<'EOF'
           <?xml version="1.0"?>
           <?xml-model href="schema.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
