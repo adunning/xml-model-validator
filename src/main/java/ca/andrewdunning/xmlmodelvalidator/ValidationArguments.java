@@ -43,6 +43,11 @@ final class ValidationArguments {
 
     /**
      * Builds normalized runtime arguments from CLI option values.
+     *
+     * Explicit file extensions take precedence over inline rule extensions. When
+     * no file extensions are supplied, directory and file-list discovery defaults
+     * to {@code .xml} and also includes an inline rule extension when one is
+     * provided.
      */
     static ValidationArguments fromCli(
             Path directory,
@@ -50,6 +55,7 @@ final class ValidationArguments {
             Path configFile,
             List<Path> explicitFiles,
             List<String> fileExtensions,
+            String inlineRuleExtension,
             int jobs,
             boolean failFast) {
         Path normalizedDirectory = directory == null
@@ -66,7 +72,13 @@ final class ValidationArguments {
         for (Path rawFile : explicitFiles) {
             files.add(ValidationSupport.resolveAgainstWorkspace(rawFile));
         }
-        List<String> normalizedFileExtensions = normalizeFileExtensions(fileExtensions);
+        List<String> effectiveFileExtensions = fileExtensions;
+        if (effectiveFileExtensions == null || effectiveFileExtensions.isEmpty()) {
+            effectiveFileExtensions = inlineRuleExtension == null || inlineRuleExtension.isBlank()
+                    ? List.of(".xml")
+                    : List.of(".xml", inlineRuleExtension);
+        }
+        List<String> normalizedFileExtensions = normalizeFileExtensions(effectiveFileExtensions);
 
         boolean directoryMode = normalizedDirectory != null && normalizedFileList == null && files.isEmpty();
         return new ValidationArguments(

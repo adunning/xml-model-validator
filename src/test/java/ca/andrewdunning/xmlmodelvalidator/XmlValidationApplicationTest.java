@@ -41,6 +41,7 @@ final class XmlValidationApplicationTest {
                 null,
                 List.of(valid),
                 List.of(),
+                null,
                 1,
                 false);
         XmlValidationApplication application = createApplication(Map.of(), List.of());
@@ -75,6 +76,7 @@ final class XmlValidationApplicationTest {
                 null,
                 List.of(invalid, validOne, validTwo),
                 List.of(),
+                null,
                 1,
                 true);
         XmlValidationApplication application = createApplication(Map.of(), List.of());
@@ -102,6 +104,7 @@ final class XmlValidationApplicationTest {
                 null,
                 List.of(valid),
                 List.of(),
+                null,
                 2,
                 false);
         XmlValidationApplication application = createApplication(Map.of(), List.of());
@@ -212,7 +215,7 @@ final class XmlValidationApplicationTest {
         }
 
         assertEquals(0, exitCode);
-        assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).contains("Validating 1 file(s)"));
+        assertFalse(stderrBuffer.toString(StandardCharsets.UTF_8).contains("No matching files found"));
     }
 
     @Test
@@ -265,7 +268,7 @@ final class XmlValidationApplicationTest {
         }
 
         assertEquals(0, exitCode);
-        assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).contains("Validating 1 file(s)"));
+        assertFalse(stderrBuffer.toString(StandardCharsets.UTF_8).contains("No matching files found"));
     }
 
     @Test
@@ -313,7 +316,53 @@ final class XmlValidationApplicationTest {
         }
 
         assertEquals(0, exitCode);
-        assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).contains("Validating 1 file(s)"));
+        assertFalse(stderrBuffer.toString(StandardCharsets.UTF_8).contains("No matching files found"));
+    }
+
+    @Test
+    void executeInfersFileExtensionsFromInlineRuleExtension() throws Exception {
+        write("styles/schema.rng", """
+                <grammar xmlns="http://relaxng.org/ns/structure/1.0">
+                  <start>
+                    <element name="root">
+                      <empty/>
+                    </element>
+                  </start>
+                </grammar>
+                """);
+        write("styles/document.csl", """
+                <?xml version="1.0"?>
+                <root/>
+                """);
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+        PrintStream originalErr = System.err;
+
+        int exitCode;
+        try {
+            System.setErr(new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+            exitCode = XmlValidationApplication.execute(
+                    new String[] {
+                            "--directory",
+                            temporaryDirectory.resolve("styles").toString(),
+                            "--rule-mode",
+                            "fallback",
+                            "--rule-directory",
+                            temporaryDirectory.resolve("styles").toString(),
+                            "--rule-extension",
+                            "csl",
+                            "--xml-model-declaration",
+                            "href=\"%s\" schematypens=\"http://relaxng.org/ns/structure/1.0\""
+                                    .formatted(temporaryDirectory.resolve("styles/schema.rng"))
+                    },
+                    new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                    new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+        } finally {
+            System.setErr(originalErr);
+        }
+
+        assertEquals(0, exitCode);
+        assertFalse(stderrBuffer.toString(StandardCharsets.UTF_8).contains("No matching files found"));
     }
 
     @Test

@@ -125,11 +125,6 @@ write_changed_files() {
 
 set -- java -jar "${JAR_PATH}"
 
-effective_file_extensions="${XML_MODEL_VALIDATOR_INPUT_FILE_EXTENSIONS:-}"
-if [ -z "${effective_file_extensions}" ] && [ -n "${XML_MODEL_VALIDATOR_INPUT_XML_MODEL_RULE_EXTENSION:-}" ]; then
-  effective_file_extensions="${XML_MODEL_VALIDATOR_INPUT_XML_MODEL_RULE_EXTENSION}"
-fi
-
 if [ -n "${XML_MODEL_VALIDATOR_INPUT_CONFIG:-}" ]; then
   set -- "$@" --config "${XML_MODEL_VALIDATOR_INPUT_CONFIG}"
 fi
@@ -156,8 +151,8 @@ ${XML_MODEL_VALIDATOR_INPUT_XML_MODEL_DECLARATIONS}
 EOF
 fi
 
-if [ -n "${effective_file_extensions}" ]; then
-  set -- "$@" --file-extensions "${effective_file_extensions}"
+if [ -n "${XML_MODEL_VALIDATOR_INPUT_FILE_EXTENSIONS:-}" ]; then
+  set -- "$@" --file-extensions "${XML_MODEL_VALIDATOR_INPUT_FILE_EXTENSIONS}"
 fi
 
 if [ "${XML_MODEL_VALIDATOR_INPUT_FAIL_FAST:-false}" = "true" ]; then

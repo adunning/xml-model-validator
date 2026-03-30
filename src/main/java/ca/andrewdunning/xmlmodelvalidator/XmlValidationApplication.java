@@ -19,6 +19,7 @@ import java.util.concurrent.Semaphore;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.IVersionProvider;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
@@ -69,8 +70,7 @@ public final class XmlValidationApplication {
         @Option(
                 names = "--file-extensions",
                 split = "[,\\s]+",
-                defaultValue = ".xml",
-                description = "File extensions to discover when scanning directories or file lists; a leading period is optional (default: ${DEFAULT-VALUE})")
+                description = "File extensions to discover when scanning directories or file lists; a leading period is optional. Defaults to .xml, and also includes an inline rule extension when one is provided.")
         private List<String> fileExtensions = new ArrayList<>();
 
         @Option(
@@ -78,17 +78,8 @@ public final class XmlValidationApplication {
                 description = "Optional path to a TOML validator config file containing schema aliases and xml-model rules")
         private Path configFile;
 
-        @Option(names = "--rule-mode", description = "Optional inline xml-model rule mode for this run: fallback or replace")
-        private String ruleMode = "fallback";
-
-        @Option(names = "--rule-directory", description = "Optional directory scope for an inline xml-model rule")
-        private Path ruleDirectory;
-
-        @Option(names = "--rule-extension", description = "Optional file extension scope for an inline xml-model rule; a leading period is optional")
-        private String ruleExtension;
-
-        @Option(names = "--xml-model-declaration", description = "Inline xml-model declaration to apply for the configured rule; repeat for multiple declarations")
-        private List<String> xmlModelDeclarations = new ArrayList<>();
+        @ArgGroup(exclusive = false, heading = "Inline xml-model rule options:%n")
+        private InlineRuleOptions inlineRule;
 
         @Option(names = { "-j",
                 "--jobs" }, description = "Number of parallel workers to use (0 = auto)", defaultValue = "0")
@@ -111,6 +102,7 @@ public final class XmlValidationApplication {
                     configFile,
                     explicitFiles,
                     fileExtensions,
+                    inlineRule == null ? null : inlineRule.extension,
                     jobs,
                     failFast);
 
@@ -126,9 +118,9 @@ public final class XmlValidationApplication {
 
             ValidatorConfig config = ValidationSupport.loadConfig(arguments.configFile());
             List<XmlModelRule> xmlModelRules = new ArrayList<>(config.xmlModelRules());
-            XmlModelRule inlineRule = buildInlineRule();
-            if (inlineRule != null) {
-                xmlModelRules.add(inlineRule);
+            XmlModelRule resolvedInlineRule = buildInlineRule();
+            if (resolvedInlineRule != null) {
+                xmlModelRules.add(resolvedInlineRule);
             }
 
             XmlValidationApplication application = new XmlValidationApplication(
@@ -138,26 +130,51 @@ public final class XmlValidationApplication {
         }
 
         private XmlModelRule buildInlineRule() throws Exception {
-            if (xmlModelDeclarations.isEmpty()) {
-                if (ruleDirectory != null || ruleExtension != null || !"fallback".equalsIgnoreCase(ruleMode)) {
+            if (inlineRule == null || inlineRule.isEmpty()) {
+                return null;
+            }
+            return inlineRule.toRule();
+        }
+
+        private static final class InlineRuleOptions {
+            @Option(names = "--rule-mode", description = "Optional inline xml-model rule mode for this run: fallback or replace", defaultValue = "fallback")
+            private String mode = "fallback";
+
+            @Option(names = "--rule-directory", description = "Optional directory scope for an inline xml-model rule")
+            private Path directory;
+
+            @Option(names = "--rule-extension", description = "Optional file extension scope for an inline xml-model rule; a leading period is optional")
+            private String extension;
+
+            @Option(names = "--xml-model-declaration", description = "Inline xml-model declaration to apply for the configured rule; repeat for multiple declarations")
+            private List<String> declarations = new ArrayList<>();
+
+            private boolean isEmpty() throws java.io.IOException {
+                if (!declarations.isEmpty()) {
+                    return false;
+                }
+                if (directory != null || extension != null || !"fallback".equalsIgnoreCase(mode)) {
                     throw new java.io.IOException(
                             "Inline xml-model rule options require at least one --xml-model-declaration");
                 }
-                return null;
+                return true;
             }
-            Path directory = ruleDirectory == null
-                    ? null
-                    : ValidationSupport.resolveAgainstWorkspace(ruleDirectory);
-            List<XmlModelEntry> entries = new ArrayList<>();
-            for (String declaration : xmlModelDeclarations) {
-                XmlModelEntry parsed = XmlModelParser.parseDeclaration(declaration);
-                entries.add(ValidationSupport.createConfiguredXmlModelEntry(
-                        parsed.href(),
-                        parsed.schemaTypeNamespace(),
-                        parsed.type(),
-                        parsed.phase()));
+
+            private XmlModelRule toRule() throws Exception {
+                Path resolvedDirectory = directory == null
+                        ? null
+                        : ValidationSupport.resolveAgainstWorkspace(directory);
+                List<XmlModelEntry> entries = new ArrayList<>();
+                for (String declaration : declarations) {
+                    XmlModelEntry parsed = XmlModelParser.parseDeclaration(declaration);
+                    entries.add(ValidationSupport.createConfiguredXmlModelEntry(
+                            parsed.href(),
+                            parsed.schemaTypeNamespace(),
+                            parsed.type(),
+                            parsed.phase()));
+                }
+                return new XmlModelRule(resolvedDirectory, extension, XmlModelRuleMode.parse(mode), entries, 1);
             }
-            return new XmlModelRule(directory, ruleExtension, XmlModelRuleMode.parse(ruleMode), entries, 1);
         }
     }
 

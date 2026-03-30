@@ -30,6 +30,7 @@ final class ValidationArgumentsTest {
                 null,
                 List.of(),
                 List.of(),
+                null,
                 0,
                 false);
 
@@ -56,6 +57,7 @@ final class ValidationArgumentsTest {
                 null,
                 List.of(),
                 List.of(),
+                null,
                 0,
                 false);
 
@@ -75,6 +77,7 @@ final class ValidationArgumentsTest {
                 null,
                 List.of(second, first),
                 List.of(),
+                null,
                 0,
                 false);
 
@@ -104,6 +107,7 @@ final class ValidationArgumentsTest {
                 null,
                 List.of(),
                 List.of("csl"),
+                null,
                 0,
                 false);
 
@@ -134,6 +138,7 @@ final class ValidationArgumentsTest {
                 null,
                 List.of(),
                 List.of(".csl"),
+                null,
                 0,
                 false);
 
@@ -153,6 +158,7 @@ final class ValidationArgumentsTest {
                 null,
                 List.of(),
                 List.of("csl"),
+                null,
                 0,
                 false);
 
@@ -173,11 +179,58 @@ final class ValidationArgumentsTest {
                 configFile,
                 List.of(),
                 List.of(),
+                null,
                 0,
                 false);
 
         assertEquals(
                 configFile.toAbsolutePath().normalize(),
                 arguments.configFile());
+    }
+
+    @Test
+    void addsInlineRuleExtensionToDefaultXmlDiscoveryWhenUnset() throws Exception {
+        Files.writeString(temporaryDirectory.resolve("a.csl"), "<root/>", StandardCharsets.UTF_8);
+        Files.writeString(temporaryDirectory.resolve("b.xml"), "<root/>", StandardCharsets.UTF_8);
+
+        ValidationArguments arguments = ValidationArguments.fromCli(
+                temporaryDirectory,
+                null,
+                null,
+                List.of(),
+                List.of(),
+                "csl",
+                0,
+                false);
+
+        List<Path> files = arguments.resolveFiles();
+
+        assertEquals(
+                List.of(
+                        temporaryDirectory.resolve("a.csl").toAbsolutePath().normalize(),
+                        temporaryDirectory.resolve("b.xml").toAbsolutePath().normalize()),
+                files);
+    }
+
+    @Test
+    void prefersExplicitFileExtensionsOverInlineRuleExtensionInference() throws Exception {
+        Files.writeString(temporaryDirectory.resolve("a.csl"), "<root/>", StandardCharsets.UTF_8);
+        Files.writeString(temporaryDirectory.resolve("b.xml"), "<root/>", StandardCharsets.UTF_8);
+
+        ValidationArguments arguments = ValidationArguments.fromCli(
+                temporaryDirectory,
+                null,
+                null,
+                List.of(),
+                List.of("xml"),
+                "csl",
+                0,
+                false);
+
+        List<Path> files = arguments.resolveFiles();
+
+        assertEquals(
+                List.of(temporaryDirectory.resolve("b.xml").toAbsolutePath().normalize()),
+                files);
     }
 }

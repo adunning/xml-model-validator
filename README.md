@@ -87,6 +87,10 @@ Action inputs:
       href="https://example.org/schema/styles.sch" schematypens="http://purl.oclc.org/dsdl/schematron"
 ```
 
+Because `file_extensions` is omitted here, the Action discovers both `.xml`
+files and `.csl` files in `styles`. Set `file_extensions: csl` as well if you
+want to restrict discovery to `.csl` only.
+
 Replace inline declarations for one directory with remote Relax NG and
 Schematron rules with only Action inputs:
 
@@ -175,7 +179,8 @@ Validate explicit files and stop on the first failure:
   `xml-model` rule
 - `xml_model_rule_extension`: optional file extension scope for the inline
   `xml-model` rule; a leading period is optional, and when `file_extensions` is
-  omitted the Action uses this value for file discovery as well
+  omitted the Action still discovers `.xml` files by default and adds this
+  value to the discovery set
 - `xml_model_declarations`: optional newline-delimited declarations for one
   inline `xml-model` rule; remote schema URLs are supported and are expected to
   be the most common case
@@ -258,6 +263,11 @@ resolution against the XML file itself.
 The GitHub Action’s inline override inputs define only one rule per run. Use
 the TOML config file when you need multiple directory-specific or
 extension-specific rules in the same workflow.
+
+When an inline rule provides `xml_model_rule_extension` and `file_extensions`
+is omitted, the effective discovery set is `.xml` plus the inline rule
+extension. Set `file_extensions` explicitly when you want to narrow discovery
+to a smaller set such as only `.csl`.
 
 Configured remote schema URLs use the same download and cache behaviour as
 remote schema URLs referenced from inline `xml-model` processing instructions.
