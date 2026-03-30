@@ -1,7 +1,14 @@
 # xml-model-validator
 
 Validate XML from `xml-model` processing instructions with a GitHub Action and
-CLI designed for Relax NG and Schematron-heavy repositories.
+CLI built for Relax NG and Schematron-heavy repositories.
+
+It is designed to feel native in GitHub:
+
+- inline annotations on failing files
+- a readable step summary for every run
+- structured outputs for later workflow steps
+- an optional JSON report for artifacts or downstream automation
 
 This repository provides:
 
@@ -32,8 +39,23 @@ The validator:
   repository when run as a GitHub Action
 - can emit machine-readable JSON reports for automation
 - emits GitHub annotations for validation failures and warnings
+- writes GitHub step summaries for Action runs, including skipped changed-file checks
 
 ## GitHub Action
+
+What the Action gives you in GitHub:
+
+- inline workflow annotations for validation errors and warnings
+- a Markdown step summary with counts, run context, and issue details
+- structured outputs for later workflow steps
+- an optional saved JSON report for artifacts or downstream automation
+
+Typical workflow:
+
+1. check out the repository
+2. run the Action against the whole repository, one directory, explicit files, or changed files only
+3. inspect annotations and the step summary in GitHub
+4. optionally use the structured outputs or saved JSON report in later steps
 
 Minimal usage:
 
@@ -41,6 +63,9 @@ Minimal usage:
 - uses: actions/checkout@v6
 - uses: adunning/xml-model-validator@v1
 ```
+
+That default run validates all matching files in the repository and reports the
+result through annotations and the job summary.
 
 Version tag semantics:
 
@@ -65,6 +90,34 @@ Validate XML files stored with a non-`.xml` extension:
     directory: styles
     file_extensions: csl
 ```
+
+Use changed-file mode in pull requests and upload a JSON report:
+
+```yaml
+- uses: actions/checkout@v6
+  with:
+    fetch-depth: 0
+
+- id: xml-validate
+  uses: adunning/xml-model-validator@v1
+  with:
+    changed_files_only: true
+    json_report_path: reports/xml-validation.json
+
+- uses: actions/upload-artifact@v4
+  if: always() && steps.xml-validate.outputs.json_report_path != ''
+  with:
+    name: xml-validation-report
+    path: ${{ steps.xml-validate.outputs.json_report_path }}
+```
+
+If you want the Action to behave as predictably as possible in pull requests,
+prefer `actions/checkout@v6` with `fetch-depth: 0`.
+
+For repositories that mostly care about pull-request validation, `changed_files_only: true`
+plus a saved JSON report is usually the best starting point. For repositories
+that want a full repository check on every run, the default Action invocation is
+usually enough.
 
 ## Common patterns
 
@@ -188,6 +241,7 @@ Validate explicit files and stop on the first failure:
   inline `xml-model` rule; remote schema URLs are supported and are expected to
   be the most common case
 - `fail_fast`: stop after the first failing file
+- `json_report_path`: optional path, relative to the repository root or absolute, where the Action should save a JSON validation report
 
 If you do not provide `files`, `files_from`, `directory`, or `changed_files_only`,
 the action validates all matching files in the repository by default.
@@ -203,7 +257,63 @@ When `changed_files_only: true`:
 - `changed_source: api` requires GitHub event context and API access.
 - `changed_source: git` uses local git diff logic.
 - If no changed files with matching extensions are found, the action reports that validation was
-  skipped and exits successfully.
+  skipped, emits a GitHub notice and step summary, and exits successfully.
+
+During GitHub Action runs, the default output format emits both workflow
+annotations and a Markdown step summary. The summary includes counts, duration,
+run context, and issue details when validation runs, and an explicit skip
+message when `changed_files_only` finds nothing to validate.
+
+The Action also exposes structured outputs you can use in later workflow steps:
+
+- `skipped`
+- `files_checked`
+- `failed_files`
+- `warning_count`
+- `json_report_path`
+
+## Outputs
+
+- `skipped`: `true` when `changed_files_only` found no matching files and the Action exited successfully without validating
+- `files_checked`: number of files actually validated
+- `failed_files`: number of files that failed validation
+- `warning_count`: number of warning-level issues reported
+- `json_report_path`: absolute path to the saved JSON report when `json_report_path` is set; otherwise empty
+
+Example:
+
+```yaml
+- id: xml-validate
+  uses: adunning/xml-model-validator@v1
+  with:
+    changed_files_only: true
+    json_report_path: reports/xml-validation.json
+
+- name: Show validation result
+  if: always()
+  run: |
+    echo "Skipped: ${{ steps.xml-validate.outputs.skipped }}"
+    echo "Checked: ${{ steps.xml-validate.outputs.files_checked }}"
+    echo "Failed: ${{ steps.xml-validate.outputs.failed_files }}"
+    echo "Warnings: ${{ steps.xml-validate.outputs.warning_count }}"
+    echo "JSON report: ${{ steps.xml-validate.outputs.json_report_path }}"
+```
+
+Upload the saved JSON report as a workflow artifact:
+
+```yaml
+- id: xml-validate
+  uses: adunning/xml-model-validator@v1
+  with:
+    directory: collections
+    json_report_path: reports/xml-validation.json
+
+- uses: actions/upload-artifact@v4
+  if: always() && steps.xml-validate.outputs.json_report_path != ''
+  with:
+    name: xml-validation-report
+    path: ${{ steps.xml-validate.outputs.json_report_path }}
+```
 
 ## Configuration Reference
 
@@ -430,33 +540,3 @@ curl -LO "https://github.com/adunning/xml-model-validator/releases/download/${VE
 curl -LO "https://github.com/adunning/xml-model-validator/releases/download/${VERSION}/xml-model-validator.jar.sha256"
 shasum -a 256 -c xml-model-validator.jar.sha256
 ```
-
-## Preparing a release
-
-1. Ensure `pom.xml` and `CITATION.cff` use the target version.
-2. Ensure `CITATION.cff` `date-released` matches the planned release date.
-3. Run checks locally:
-
-```bash
-./mvnw -B verify
-```
-
-4. Tag and push a strict SemVer tag (`vX.Y.Z`):
-
-```bash
-git tag -a vX.Y.Z -m "Release vX.Y.Z"
-git push origin vX.Y.Z
-```
-
-5. The release workflow creates the GitHub Release automatically from that tag,
-  and then force-updates the major tag (`vX`) to the same commit.
-
-  Example: pushing `v1.0.0` publishes the release and updates `v1`.
-
-6. Do not manually create or push `v1`, `v2`, etc.; those tags are managed by
-  the release workflow to stay synchronized with the latest patch/minor in each
-  major line.
-
-The release workflow validates version metadata, verifies the jar runtime
-version, builds the project, and publishes the runnable jar plus SHA-256
-checksum as GitHub Release assets.
