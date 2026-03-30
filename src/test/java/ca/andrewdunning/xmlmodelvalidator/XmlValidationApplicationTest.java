@@ -138,7 +138,12 @@ final class XmlValidationApplicationTest {
         try {
             System.setErr(new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
             exitCode = XmlValidationApplication.execute(
-                    new String[] { "--verbose", temporaryDirectory.resolve("single.xml").toString() },
+                    new String[] {
+                            "--format",
+                            "text",
+                            "--verbose",
+                            temporaryDirectory.resolve("single.xml").toString()
+                    },
                     new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
                     new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
         } finally {
