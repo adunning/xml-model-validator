@@ -67,7 +67,7 @@ Minimal usage:
 
 ```yaml
 - uses: actions/checkout@v6
-- uses: adunning/xml-model-validator@v1
+- uses: adunning/xml-model-validator@v2
 ```
 
 That default run validates all matching files in the repository and reports the
@@ -75,15 +75,15 @@ result through annotations and the job summary.
 
 Version tag semantics:
 
-- `@v1` is a floating major tag that tracks the latest `1.x.y` release.
-- `@v1.0.0` is an immutable exact release tag.
+- `@v2` is a floating major tag that tracks the latest `2.x.y` release.
+- `@v2.0.0` is an immutable exact release tag.
 - This repository publishes releases from `vX.Y.Z` tags and then updates the
   matching major tag (`vX`) automatically.
 
 Validate a directory recursively:
 
 ```yaml
-- uses: adunning/xml-model-validator@v1
+- uses: adunning/xml-model-validator@v2
   with:
     directory: collections
 ```
@@ -91,7 +91,7 @@ Validate a directory recursively:
 Validate XML files stored with a non-`.xml` extension:
 
 ```yaml
-- uses: adunning/xml-model-validator@v1
+- uses: adunning/xml-model-validator@v2
   with:
     directory: styles
     file_extensions: csl
@@ -105,7 +105,7 @@ Use changed-file mode in pull requests and upload a JSON report:
     fetch-depth: 0
 
 - id: xml-validate
-  uses: adunning/xml-model-validator@v1
+  uses: adunning/xml-model-validator@v2
   with:
     changed_files_only: true
     json_report_path: reports/xml-validation.json
@@ -136,7 +136,7 @@ Apply a fallback remote Relax NG schema to files in one directory with only
 Action inputs:
 
 ```yaml
-- uses: adunning/xml-model-validator@v1
+- uses: adunning/xml-model-validator@v2
   with:
     directory: styles
     xml_model_rule_mode: fallback
@@ -155,7 +155,7 @@ Replace inline declarations for one directory with remote Relax NG and
 Schematron rules with only Action inputs:
 
 ```yaml
-- uses: adunning/xml-model-validator@v1
+- uses: adunning/xml-model-validator@v2
   with:
     directory: tei
     xml_model_rule_mode: replace
@@ -199,7 +199,7 @@ schematypens = "http://purl.oclc.org/dsdl/schematron"
 Validate only the XML files changed by the current push or pull request:
 
 ```yaml
-- uses: adunning/xml-model-validator@v1
+- uses: adunning/xml-model-validator@v2
   with:
     changed_files_only: true
 ```
@@ -207,7 +207,7 @@ Validate only the XML files changed by the current push or pull request:
 Choose how changed files are discovered:
 
 ```yaml
-- uses: adunning/xml-model-validator@v1
+- uses: adunning/xml-model-validator@v2
   with:
     changed_files_only: true
     changed_source: auto # auto | api | git
@@ -216,7 +216,7 @@ Choose how changed files are discovered:
 Validate explicit files and stop on the first failure:
 
 ```yaml
-- uses: adunning/xml-model-validator@v1
+- uses: adunning/xml-model-validator@v2
   with:
     files: |
       docs/a.xml
@@ -290,7 +290,7 @@ Example:
 
 ```yaml
 - id: xml-validate
-  uses: adunning/xml-model-validator@v1
+  uses: adunning/xml-model-validator@v2
   with:
     changed_files_only: true
     json_report_path: reports/xml-validation.json
@@ -309,7 +309,7 @@ Upload the saved JSON report as a workflow artifact:
 
 ```yaml
 - id: xml-validate
-  uses: adunning/xml-model-validator@v1
+  uses: adunning/xml-model-validator@v2
   with:
     directory: collections
     json_report_path: reports/xml-validation.json
@@ -541,7 +541,7 @@ java -jar target/xml-model-validator.jar --plan --format json --directory path/t
 Verify a published release artifact:
 
 ```bash
-VERSION=v1.0.0 # replace with the release tag you want to verify
+VERSION=v2.0.0 # replace with the release tag you want to verify
 curl -LO "https://github.com/adunning/xml-model-validator/releases/download/${VERSION}/xml-model-validator.jar"
 curl -LO "https://github.com/adunning/xml-model-validator/releases/download/${VERSION}/xml-model-validator.jar.sha256"
 shasum -a 256 -c xml-model-validator.jar.sha256
