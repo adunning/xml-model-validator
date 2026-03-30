@@ -100,13 +100,13 @@ final class XmlFileValidator {
 
             List<ValidationIssue> issues = new ArrayList<>();
             for (ResolvedSchema schema : relaxNgSchemas) {
-                issues.addAll(jingValidator.validate(schema.path(), file));
+                issues.addAll(jingValidator.validate(schema.source(), file));
                 if (schema.entry().supportsEmbeddedSchematron()) {
-                    issues.addAll(validateSchematron(schema.path(), file, schema.entry().phase()));
+                    issues.addAll(validateSchematron(schema.source().path(), file, schema.entry().phase()));
                 }
             }
             for (ResolvedSchema schema : schematronSchemas) {
-                issues.addAll(validateSchematron(schema.path(), file, schema.entry().phase()));
+                issues.addAll(validateSchematron(schema.source().path(), file, schema.entry().phase()));
             }
 
             boolean hasErrors = issues.stream().anyMatch(issue -> !issue.warning());
@@ -134,8 +134,8 @@ final class XmlFileValidator {
             if (!entry.matches(schemaKind)) {
                 continue;
             }
-            Path resolved = schemaResolver.resolve(entry.href(), file.getParent());
-            String dedupeKey = resolved.toString() + "|" + entry.phase();
+            ResolvedSchemaSource resolved = schemaResolver.resolveSource(entry.href(), file.getParent());
+            String dedupeKey = resolved.systemId() + "|" + entry.phase();
             if (seen.add(dedupeKey)) {
                 schemas.add(new ResolvedSchema(resolved, entry));
             }
@@ -314,6 +314,6 @@ final class XmlFileValidator {
     /**
      * Associates a resolved schema file with the xml-model entry that requested it.
      */
-    private record ResolvedSchema(Path path, XmlModelEntry entry) {
+    private record ResolvedSchema(ResolvedSchemaSource source, XmlModelEntry entry) {
     }
 }

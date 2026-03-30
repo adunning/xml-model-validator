@@ -13,6 +13,8 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXParseException;
 import org.xml.sax.XMLReader;
 
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,9 +37,17 @@ final class JingValidator {
      * creating a fresh validator per document.
      */
     List<ValidationIssue> validate(Path schema, Path xmlFile) throws Exception {
-        Path normalizedSchema = schema.toAbsolutePath().normalize();
+        return validate(new ResolvedSchemaSource(schema, schema.toUri().toString()), xmlFile);
+    }
+
+    /**
+     * Runs Jing through its embedded validation API, preserving the schema system identifier so remote
+     * includes in RELAX NG Compact Syntax keep resolving relative to their source URL.
+     */
+    List<ValidationIssue> validate(ResolvedSchemaSource schema, Path xmlFile) throws Exception {
+        Path normalizedSchema = schema.path().toAbsolutePath().normalize();
         CollectingErrorHandler errorHandler = new CollectingErrorHandler(xmlFile);
-        Schema compiledSchema = loadSchema(normalizedSchema, errorHandler);
+        Schema compiledSchema = loadSchema(new ResolvedSchemaSource(normalizedSchema, schema.systemId()), errorHandler);
         Validator validator = compiledSchema.createValidator(instanceProperties(errorHandler));
         XMLReader reader = XML_READERS.reader();
         reader.setContentHandler(validator.getContentHandler());
@@ -50,13 +60,20 @@ final class JingValidator {
         return errorHandler.finish(null);
     }
 
-    private synchronized Schema loadSchema(Path schemaPath, ErrorHandler errorHandler) throws Exception {
+    private synchronized Schema loadSchema(ResolvedSchemaSource schemaSource, ErrorHandler errorHandler) throws Exception {
+        Path schemaPath = schemaSource.path();
         Schema cached = schemaCache.get(schemaPath);
         if (cached != null) {
             return cached;
         }
         SchemaReader schemaReader = schemaReaderFor(schemaPath);
-        Schema loaded = schemaReader.createSchema(asInputSource(schemaPath), schemaProperties(errorHandler));
+        Schema loaded;
+        try (InputStream stream = Files.newInputStream(schemaSource.path())) {
+            InputSource source = new InputSource(schemaSource.systemId());
+            source.setSystemId(schemaSource.systemId());
+            source.setByteStream(stream);
+            loaded = schemaReader.createSchema(source, schemaProperties(errorHandler));
+        }
         schemaCache.put(schemaPath, loaded);
         return loaded;
     }
