@@ -44,7 +44,7 @@ final class XmlValidationApplicationTest {
                 null,
                 1,
                 false);
-        XmlValidationApplication application = createApplication(Map.of(), List.of(), false);
+        XmlValidationApplication application = createApplication(Map.of(), List.of(), false, null, System.out, System.err);
 
         int exitCode = invokeRun(application, arguments, arguments.resolveFiles());
 
@@ -79,7 +79,7 @@ final class XmlValidationApplicationTest {
                 null,
                 1,
                 true);
-        XmlValidationApplication application = createApplication(Map.of(), List.of(), false);
+        XmlValidationApplication application = createApplication(Map.of(), List.of(), false, null, System.out, System.err);
         List<Path> files = arguments.resolveFiles();
 
         List<ValidationResult> results = invokeValidateFiles(application, arguments, files, 1);
@@ -107,7 +107,7 @@ final class XmlValidationApplicationTest {
                 null,
                 2,
                 false);
-        XmlValidationApplication application = createApplication(Map.of(), List.of(), false);
+        XmlValidationApplication application = createApplication(Map.of(), List.of(), false, null, System.out, System.err);
         ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
         PrintStream originalErr = System.err;
 
@@ -212,6 +212,34 @@ final class XmlValidationApplicationTest {
         assertEquals(0, exitCode);
         String stdout = stdoutBuffer.toString(StandardCharsets.UTF_8);
         assertTrue(stdout.contains("Usage: xml-model-validator"));
+        assertTrue(stdout.contains("Examples:"));
+        assertTrue(stdout.contains("--files-from -"));
+        assertTrue(stdout.contains("Exactly one input source is required"));
+        assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).isBlank());
+    }
+
+    @Test
+    void executePrintsJsonWhenRequested() throws Exception {
+        writeRelaxNgSchema("schema.rng");
+        writeXml("single.xml", """
+                <?xml version="1.0"?>
+                <?xml-model href="schema.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+                <root/>
+                """);
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+
+        int exitCode = XmlValidationApplication.execute(
+                new String[] { "--format", "json", temporaryDirectory.resolve("single.xml").toString() },
+                new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+
+        assertEquals(0, exitCode);
+        String stdout = stdoutBuffer.toString(StandardCharsets.UTF_8);
+        assertTrue(stdout.contains("\"summary\""));
+        assertTrue(stdout.contains("\"filesChecked\":1"));
+        assertTrue(stdout.contains("\"failedFiles\":0"));
+        assertTrue(stdout.contains("\"file\":\""));
         assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).isBlank());
     }
 
@@ -619,11 +647,17 @@ final class XmlValidationApplicationTest {
         assertEquals(0, exitCode);
     }
 
-    private XmlValidationApplication createApplication(Map<String, Path> schemaAliases, List<XmlModelRule> xmlModelRules, boolean verbose) throws Exception {
+    private XmlValidationApplication createApplication(
+            Map<String, Path> schemaAliases,
+            List<XmlModelRule> xmlModelRules,
+            boolean verbose,
+            OutputFormat format,
+            PrintStream output,
+            PrintStream error) throws Exception {
         Constructor<XmlValidationApplication> constructor = XmlValidationApplication.class
-                .getDeclaredConstructor(Map.class, List.class, boolean.class);
+                .getDeclaredConstructor(Map.class, List.class, boolean.class, OutputFormat.class, PrintStream.class, PrintStream.class);
         constructor.setAccessible(true);
-        return constructor.newInstance(schemaAliases, xmlModelRules, verbose);
+        return constructor.newInstance(schemaAliases, xmlModelRules, verbose, format, output, error);
     }
 
     private int invokeRun(XmlValidationApplication application, ValidationArguments arguments, List<Path> files)

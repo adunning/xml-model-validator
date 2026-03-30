@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -62,25 +63,19 @@ final class ValidationReporterTest {
 
     @Test
     void emitsGithubAnnotationsWithoutDuplicateConsoleIssueLines() {
-        ValidationReporter reporter = new ValidationReporter(true, false);
+        ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderr = new ByteArrayOutputStream();
+        ValidationReporter reporter = new ValidationReporter(
+                OutputFormat.GITHUB,
+                false,
+                new PrintStream(stdout, true, StandardCharsets.UTF_8),
+                new PrintStream(stderr, true, StandardCharsets.UTF_8));
         ValidationResult result = new ValidationResult(
                 Path.of("document.xml"),
                 false,
                 List.of(new ValidationIssue(Path.of("document.xml"), "Line one\n    Line two", 8, null, false)));
-        ByteArrayOutputStream stdout = new ByteArrayOutputStream();
-        ByteArrayOutputStream stderr = new ByteArrayOutputStream();
-        PrintStream originalOut = System.out;
-        PrintStream originalErr = System.err;
 
-        try {
-            System.setOut(new PrintStream(stdout, true, StandardCharsets.UTF_8));
-            System.setErr(new PrintStream(stderr, true, StandardCharsets.UTF_8));
-
-            reporter.emitSummary(List.of(result), Duration.ofMillis(500));
-        } finally {
-            System.setOut(originalOut);
-            System.setErr(originalErr);
-        }
+        reporter.emitSummary(List.of(result), Duration.ofMillis(500));
 
         String stdoutText = stdout.toString(StandardCharsets.UTF_8);
         String stderrText = stderr.toString(StandardCharsets.UTF_8);
@@ -93,6 +88,31 @@ final class ValidationReporterTest {
         assertTrue(stdoutText.contains("::error title=XML Validation Summary::1 of 1 file(s) failed validation"));
         assertFalse(stderrText.contains("document.xml, line 8"));
         assertTrue(stderrText.contains("ERROR: 1 file(s) failed validation"));
+    }
+
+    @Test
+    void emitsJsonSummaryForStructuredConsumers() {
+        ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderr = new ByteArrayOutputStream();
+        ValidationReporter reporter = new ValidationReporter(
+                OutputFormat.JSON,
+                false,
+                new PrintStream(stdout, true, StandardCharsets.UTF_8),
+                new PrintStream(stderr, true, StandardCharsets.UTF_8));
+        ValidationResult result = new ValidationResult(
+                Path.of("document.xml"),
+                false,
+                List.of(new ValidationIssue(Path.of("document.xml"), "Broken <tag>", 12, 4, false)));
+
+        int exitCode = reporter.emitSummary(List.of(result), Duration.ofMillis(500));
+
+        String stdoutText = stdout.toString(StandardCharsets.UTF_8);
+        assertEquals(1, exitCode);
+        assertTrue(stdoutText.contains("\"summary\""));
+        assertTrue(stdoutText.contains("\"failedFiles\":1"));
+        assertTrue(stdoutText.contains("\"severity\":\"error\""));
+        assertTrue(stdoutText.contains("\"message\":\"Broken <tag>\""));
+        assertTrue(stderr.toString(StandardCharsets.UTF_8).isBlank());
     }
 
     @Test

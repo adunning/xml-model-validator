@@ -34,8 +34,18 @@ public final class XmlValidationApplication {
     private final ValidationReporter reporter;
     private final XmlFileValidator validator;
 
-    private XmlValidationApplication(Map<String, Path> schemaAliases, List<XmlModelRule> xmlModelRules, boolean verbose) {
-        this.reporter = new ValidationReporter("true".equalsIgnoreCase(System.getenv("GITHUB_ACTIONS")), verbose);
+    private XmlValidationApplication(
+            Map<String, Path> schemaAliases,
+            List<XmlModelRule> xmlModelRules,
+            boolean verbose,
+            OutputFormat format,
+            PrintStream output,
+            PrintStream error) {
+        boolean githubActions = "true".equalsIgnoreCase(System.getenv("GITHUB_ACTIONS"));
+        OutputFormat effectiveFormat = format == null
+                ? OutputFormat.defaultForEnvironment(githubActions)
+                : format;
+        this.reporter = new ValidationReporter(effectiveFormat, verbose, output, error);
         this.validator = new XmlFileValidator(schemaAliases, xmlModelRules);
     }
 
@@ -63,7 +73,20 @@ public final class XmlValidationApplication {
         return "xml-model-validator " + version;
     }
 
-    @Command(name = "xml-model-validator", mixinStandardHelpOptions = true, versionProvider = VersionProvider.class, description = "Validate XML files that use xml-model processing instructions")
+    @Command(
+            name = "xml-model-validator",
+            mixinStandardHelpOptions = true,
+            versionProvider = VersionProvider.class,
+            description = "Validate XML files that use xml-model processing instructions.",
+            footerHeading = "%nExamples:%n",
+            footer = {
+                    "  xml-model-validator --directory path/to/xml",
+                    "  find path/to/xml -name '*.xml' -print | xml-model-validator --files-from -",
+                    "  xml-model-validator --format json path/to/a.xml path/to/b.xml",
+                    "  xml-model-validator --directory styles --file-extensions csl --config .xml-validator/config.toml",
+                    "",
+                    "Exactly one input source is required: --directory, --files-from, or FILES..."
+            })
     private static final class CliCommand implements java.util.concurrent.Callable<Integer> {
         @Spec
         private CommandSpec spec;
@@ -98,6 +121,9 @@ public final class XmlValidationApplication {
 
         @Option(names = "--fail-fast", description = "Stop after the first file that fails validation")
         private boolean failFast;
+
+        @Option(names = "--format", description = "Output format: ${COMPLETION-CANDIDATES}")
+        private OutputFormat format;
 
         @Option(names = { "-v", "--verbose" }, description = "Print progress information and successful validation summaries")
         private boolean verbose;
@@ -144,7 +170,10 @@ public final class XmlValidationApplication {
             XmlValidationApplication application = new XmlValidationApplication(
                     config.schemaAliases(),
                     xmlModelRules,
-                    verbose);
+                    verbose,
+                    format,
+                    output,
+                    error);
             return application.run(arguments, files);
         }
 
