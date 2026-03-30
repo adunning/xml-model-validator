@@ -129,7 +129,7 @@ or remove it so schema-only changes also trigger validation.
 Version tag semantics:
 
 - `@v2` is a floating major tag that tracks the latest `2.x.y` release.
-- `@v2.0.0` is an immutable exact release tag.
+- `@v2.1.0` is an immutable exact release tag.
 - This repository publishes releases from `vX.Y.Z` tags and then updates the
   matching major tag (`vX`) automatically.
 
@@ -597,7 +597,7 @@ java -jar target/xml-model-validator.jar --plan --format json --directory path/t
 Verify a published release artifact:
 
 ```bash
-VERSION=v2.0.0 # replace with the release tag you want to verify
+VERSION=v2.1.0 # replace with the release tag you want to verify
 curl -LO "https://github.com/adunning/xml-model-validator/releases/download/${VERSION}/xml-model-validator.jar"
 curl -LO "https://github.com/adunning/xml-model-validator/releases/download/${VERSION}/xml-model-validator.jar.sha256"
 shasum -a 256 -c xml-model-validator.jar.sha256
