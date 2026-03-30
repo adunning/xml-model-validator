@@ -2,10 +2,14 @@ package ca.andrewdunning.xmlmodelvalidator;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@ResourceLock(Resources.SYSTEM_ERR)
 final class XmlModelParserTest {
     @TempDir
     Path temporaryDirectory;
@@ -47,7 +52,15 @@ final class XmlModelParserTest {
         Path xml = write(filename, content);
 
         if (shouldFail) {
-            IOException exception = assertThrows(IOException.class, () -> new XmlModelParser().parse(xml));
+            PrintStream originalErr = System.err;
+            ByteArrayOutputStream ignoredErr = new ByteArrayOutputStream();
+            IOException exception;
+            try {
+                System.setErr(new PrintStream(ignoredErr, true, StandardCharsets.UTF_8));
+                exception = assertThrows(IOException.class, () -> new XmlModelParser().parse(xml));
+            } finally {
+                System.setErr(originalErr);
+            }
             assertTrue(exception.getMessage().contains("Could not parse xml-model processing instructions"));
             return;
         }
