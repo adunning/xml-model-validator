@@ -195,7 +195,6 @@ Action inputs:
 ```yaml
 - uses: adunning/xml-model-validator@v2
   with:
-    directory: styles
     xml_model_rule_mode: fallback
     xml_model_rule_directory: styles
     xml_model_rule_extension: csl
@@ -214,7 +213,6 @@ Schematron rules with only Action inputs:
 ```yaml
 - uses: adunning/xml-model-validator@v2
   with:
-    directory: tei
     xml_model_rule_mode: replace
     xml_model_rule_directory: tei
     xml_model_rule_extension: xml
@@ -295,7 +293,8 @@ Validate explicit files and stop on the first failure:
 - `xml_model_rule_mode`: optional inline `xml-model` rule mode (`fallback` or
   `replace`)
 - `xml_model_rule_directory`: optional directory scope for the inline
-  `xml-model` rule
+  `xml-model` rule; when no selection input is set, this also becomes the
+  default directory to validate
 - `xml_model_rule_extension`: optional file extension scope for the inline
   `xml-model` rule; a leading period is optional, and when `file_extensions` is
   omitted the Action still discovers `.xml` files by default and adds this
@@ -308,6 +307,9 @@ Validate explicit files and stop on the first failure:
 
 If you do not provide `files`, `files_from`, `directory`, or `changed_files_only`,
 the action validates all matching files in the repository by default.
+
+If `xml_model_rule_directory` is set and no selection input is provided, the
+Action validates that directory by default.
 
 The Action accepts at most one selection input at a time. If you provide more
 than one of `files`, `files_from`, `directory`, or `changed_files_only`, the run

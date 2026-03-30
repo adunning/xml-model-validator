@@ -53,7 +53,7 @@ inputs:
     description: Optional inline xml-model rule mode for this run (fallback or replace)
     required: false
   xml_model_rule_directory:
-    description: Optional directory scope for the inline xml-model rule
+    description: Optional directory scope for the inline xml-model rule; when no selection input is set, this also becomes the default directory to validate
     required: false
   xml_model_rule_extension:
     description: Optional file extension scope for the inline xml-model rule; a leading period is optional

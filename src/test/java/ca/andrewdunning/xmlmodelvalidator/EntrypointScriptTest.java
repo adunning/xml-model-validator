@@ -85,6 +85,33 @@ final class EntrypointScriptTest {
     }
 
     @Test
+    void xmlModelRuleDirectoryBecomesDefaultSelectionDirectory() throws Exception {
+        Path capturedArgs = temporaryDirectory.resolve("args.txt");
+        Path environmentRoot = prepareEnvironment(capturedArgs, null);
+
+        Process process = runEntrypoint(
+                environmentRoot,
+                Map.of(
+                        "XML_MODEL_VALIDATOR_INPUT_XML_MODEL_RULE_DIRECTORY",
+                        "styles",
+                        "XML_MODEL_VALIDATOR_INPUT_JOBS",
+                        "0"));
+
+        assertEquals(0, process.waitFor());
+        assertEquals(
+                List.of(
+                        "-jar",
+                        jarPath(environmentRoot).toString(),
+                        "--rule-directory",
+                        "styles",
+                        "-j",
+                        "0",
+                        "--directory",
+                        "styles"),
+                Files.readAllLines(capturedArgs, StandardCharsets.UTF_8));
+    }
+
+    @Test
     void changedFilesOnlyUsesFilesFromForGeneratedManifest() throws Exception {
         Path capturedArgs = temporaryDirectory.resolve("args.txt");
         Path environmentRoot = prepareEnvironment(capturedArgs, "changed/one.xml\nchanged/two.xml\n");
