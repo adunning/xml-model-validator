@@ -154,8 +154,6 @@ Use changed-file mode in pull requests and upload a JSON report:
 
 ```yaml
 - uses: actions/checkout@v6
-  with:
-    fetch-depth: 0
 
 - id: xml-validate
   uses: adunning/xml-model-validator@v2
@@ -169,9 +167,6 @@ Use changed-file mode in pull requests and upload a JSON report:
     name: xml-validation-report
     path: ${{ steps.xml-validate.outputs.json_report_path }}
 ```
-
-If you want the Action to behave as predictably as possible in pull requests,
-prefer `actions/checkout@v6` with `fetch-depth: 0`.
 
 For repositories that mostly care about pull-request validation, `changed_files_only: true`
 plus a saved JSON report is usually the best starting point. For repositories
@@ -496,9 +491,6 @@ can accumulate safely over time.
 
 The `changed_files_only` mode expects the repository to be available in the runner,
 which normally means using `actions/checkout@v6` earlier in the job.
-
-If you use `changed_source: git`, `fetch-depth: 0` is recommended for reliable
-diffs on push and pull request events.
 
 ## Local development
 
