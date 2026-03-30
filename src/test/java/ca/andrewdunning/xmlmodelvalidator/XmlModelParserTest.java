@@ -2,6 +2,8 @@ package ca.andrewdunning.xmlmodelvalidator;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -33,22 +35,25 @@ final class XmlModelParserTest {
         assertEquals("schema.rng", entries.getFirst().href());
     }
 
-    @Test
-    void toleratesMalformedXmlAfterRootStart() throws Exception {
-        Path xml = write("broken.xml", "<root><child></root>");
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', textBlock = """
+            broken.xml|<root><child></root>|false
+            broken-prolog.xml|<?xml-model href="schema.rng"<root/>|true
+            """)
+    void handlesMalformedXmlDependingOnWhetherTheRootHasStarted(
+            String filename,
+            String content,
+            boolean shouldFail) throws Exception {
+        Path xml = write(filename, content);
+
+        if (shouldFail) {
+            IOException exception = assertThrows(IOException.class, () -> new XmlModelParser().parse(xml));
+            assertTrue(exception.getMessage().contains("Could not parse xml-model processing instructions"));
+            return;
+        }
 
         List<XmlModelEntry> entries = assertDoesNotThrow(() -> new XmlModelParser().parse(xml));
-
         assertTrue(entries.isEmpty());
-    }
-
-    @Test
-    void throwsIOExceptionForMalformedXmlBeforeRootStart() throws Exception {
-        Path malformedProlog = write("broken-prolog.xml", "<?xml-model href=\"schema.rng\"<root/>");
-
-        IOException exception = assertThrows(IOException.class, () -> new XmlModelParser().parse(malformedProlog));
-
-        assertTrue(exception.getMessage().contains("Could not parse xml-model processing instructions"));
     }
 
     private Path write(String relativePath, String content) throws IOException {

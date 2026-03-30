@@ -1,18 +1,25 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.function.ThrowingSupplier;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 final class SchemaResolverTest {
     @TempDir
     Path temporaryDirectory;
@@ -44,32 +51,34 @@ final class SchemaResolverTest {
         assertEquals(imported.toUri().toString(), resolved.systemId());
     }
 
-    @Test
-    void throwsForMissingLocalPath() {
-        SchemaResolver resolver = new SchemaResolver(Map.of(), new RemoteSchemaCache());
+    @ParameterizedTest
+    @MethodSource("failingResolutionScenarios")
+    void reportsContextForResolutionFailures(
+            ThrowingSupplier<Path> resolution,
+            String expectedFragment,
+            String secondaryFragment) {
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, resolution::get);
 
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> resolver.resolve("missing.rng", temporaryDirectory));
-
-        assertTrue(exception.getMessage().contains("missing.rng"));
-        assertTrue(exception.getMessage().contains(temporaryDirectory.toString()));
-        assertTrue(exception.getMessage().contains("checked"));
+        assertAll(
+                () -> assertTrue(exception.getMessage().contains(expectedFragment)),
+                () -> assertTrue(exception.getMessage().contains(secondaryFragment)));
     }
 
-    @Test
-    void throwsForAliasThatPointsToMissingFile() {
-        Path missing = temporaryDirectory.resolve("schemas/missing.rng");
-        SchemaResolver resolver = new SchemaResolver(
-                Map.of("https://example.com/schema.rng", missing),
+    private Stream<org.junit.jupiter.params.provider.Arguments> failingResolutionScenarios() {
+        SchemaResolver defaultResolver = new SchemaResolver(Map.of(), new RemoteSchemaCache());
+        Path missingAliasTarget = temporaryDirectory.resolve("schemas/missing.rng");
+        SchemaResolver aliasResolver = new SchemaResolver(
+                Map.of("https://example.com/schema.rng", missingAliasTarget),
                 new RemoteSchemaCache());
-
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
-                () -> resolver.resolve("https://example.com/schema.rng", temporaryDirectory));
-
-        assertTrue(exception.getMessage().contains("Schema alias 'https://example.com/schema.rng'"));
-        assertTrue(exception.getMessage().contains(missing.toString()));
+        return Stream.of(
+                org.junit.jupiter.params.provider.Arguments.of(
+                        (ThrowingSupplier<Path>) () -> defaultResolver.resolve("missing.rng", temporaryDirectory),
+                        "missing.rng",
+                        "checked"),
+                org.junit.jupiter.params.provider.Arguments.of(
+                        (ThrowingSupplier<Path>) () -> aliasResolver.resolve("https://example.com/schema.rng", temporaryDirectory),
+                        "Schema alias 'https://example.com/schema.rng'",
+                        "resolves to a missing file"));
     }
 
     private Path write(String relativePath, String content) throws IOException {

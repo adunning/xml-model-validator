@@ -2,6 +2,8 @@ package ca.andrewdunning.xmlmodelvalidator;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -10,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -44,37 +47,22 @@ final class ValidationArgumentsTest {
                 files);
     }
 
-    @Test
-    void resolvesFilesFromList() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = { false, true })
+    void resolvesFilesFromManifestSources(boolean useStandardInput) throws Exception {
         Path listed = temporaryDirectory.resolve("listed.xml");
         Files.writeString(listed, "<root/>", StandardCharsets.UTF_8);
         Files.writeString(temporaryDirectory.resolve("other.xml"), "<root/>", StandardCharsets.UTF_8);
-        Path fileList = temporaryDirectory.resolve("files.txt");
-        Files.writeString(fileList, listed.toString() + "\n", StandardCharsets.UTF_8);
+        Path fileList = useStandardInput
+                ? Path.of("-")
+                : temporaryDirectory.resolve("files.txt");
+        if (!useStandardInput) {
+            Files.writeString(fileList, listed.toString() + "\n", StandardCharsets.UTF_8);
+        }
 
         ValidationArguments arguments = ValidationArguments.fromCli(
-                temporaryDirectory,
+                useStandardInput ? null : temporaryDirectory,
                 fileList,
-                null,
-                List.of(),
-                List.of(),
-                null,
-                0,
-                false);
-
-        List<Path> files = arguments.resolveFiles();
-
-        assertEquals(List.of(listed.toAbsolutePath().normalize()), files);
-    }
-
-    @Test
-    void resolvesFilesFromStandardInput() throws Exception {
-        Path listed = temporaryDirectory.resolve("listed.xml");
-        Files.writeString(listed, "<root/>", StandardCharsets.UTF_8);
-
-        ValidationArguments arguments = ValidationArguments.fromCli(
-                null,
-                Path.of("-"),
                 null,
                 List.of(),
                 List.of(),
@@ -110,10 +98,11 @@ final class ValidationArgumentsTest {
             throw new IllegalStateException(exception);
         }
 
-        assertEquals(
-                List.of(first.toAbsolutePath().normalize(), second.toAbsolutePath().normalize()),
-                files);
-        assertTrue(arguments.configFile().isAbsolute());
+        assertAll(
+                () -> assertEquals(
+                        List.of(first.toAbsolutePath().normalize(), second.toAbsolutePath().normalize()),
+                        files),
+                () -> assertTrue(arguments.configFile().isAbsolute()));
     }
 
     @Test
@@ -169,8 +158,9 @@ final class ValidationArgumentsTest {
         assertEquals(List.of(included.toAbsolutePath().normalize()), files);
     }
 
-    @Test
-    void acceptsConfiguredExtensionsWithoutLeadingPeriods() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = { "csl", ".csl" })
+    void normalizesConfiguredExtensionsForDirectoryDiscovery(String extension) throws Exception {
         Files.writeString(temporaryDirectory.resolve("a.csl"), "<root/>", StandardCharsets.UTF_8);
         Files.writeString(temporaryDirectory.resolve("b.xml"), "<root/>", StandardCharsets.UTF_8);
 
@@ -179,7 +169,7 @@ final class ValidationArgumentsTest {
                 null,
                 null,
                 List.of(),
-                List.of("csl"),
+                List.of(extension),
                 null,
                 0,
                 false);
