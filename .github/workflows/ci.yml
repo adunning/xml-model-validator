@@ -77,7 +77,7 @@ jobs:
 
           XML_MODEL_VALIDATOR_WORKSPACE="${repo}" \
           XML_MODEL_VALIDATOR_CACHE_HOME="${tmpdir}/cache" \
-          XML_MODEL_VALIDATOR_INPUT_CHANGED_ONLY="true" \
+          XML_MODEL_VALIDATOR_INPUT_CHANGED_FILES_ONLY="true" \
           GITHUB_EVENT_NAME="push" \
           GITHUB_SHA="$(git rev-parse HEAD)" \
           GITHUB_EVENT_PATH="${tmpdir}/push-event.json" \
@@ -122,7 +122,7 @@ jobs:
 
           XML_MODEL_VALIDATOR_WORKSPACE="${pr_repo}" \
           XML_MODEL_VALIDATOR_CACHE_HOME="${tmpdir}/cache" \
-          XML_MODEL_VALIDATOR_INPUT_CHANGED_ONLY="true" \
+          XML_MODEL_VALIDATOR_INPUT_CHANGED_FILES_ONLY="true" \
           GITHUB_EVENT_NAME="pull_request" \
           GITHUB_BASE_REF="main" \
           GITHUB_SHA="$(git rev-parse HEAD)" \

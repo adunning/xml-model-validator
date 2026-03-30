@@ -6,9 +6,9 @@ branding:
   color: blue
 inputs:
   files:
-    description: Space-separated list of files to validate explicitly
+    description: Newline-delimited list of files to validate explicitly
     required: false
-  file_list:
+  files_from:
     description: Path to a newline-delimited file list
     required: false
   directory:
@@ -18,12 +18,12 @@ inputs:
     description: Comma- or whitespace-separated file extensions to discover when scanning directories or changed files; a leading period is optional
     required: false
     default: ".xml"
-  changed_only:
+  changed_files_only:
     description: Validate only changed files with matching extensions from the current push or pull request
     required: false
     default: "false"
   changed_source:
-    description: Source for changed_only file discovery (auto, api, git)
+    description: Source for changed_files_only file discovery (auto, api, git)
     required: false
     default: "auto"
   jobs:
@@ -129,10 +129,10 @@ runs:
       env:
         XML_MODEL_VALIDATOR_WORKSPACE: ${{ github.workspace }}
         XML_MODEL_VALIDATOR_INPUT_FILES: ${{ inputs.files }}
-        XML_MODEL_VALIDATOR_INPUT_FILE_LIST: ${{ inputs.file_list }}
+        XML_MODEL_VALIDATOR_INPUT_FILES_FROM: ${{ inputs.files_from }}
         XML_MODEL_VALIDATOR_INPUT_DIRECTORY: ${{ inputs.directory }}
         XML_MODEL_VALIDATOR_INPUT_FILE_EXTENSIONS: ${{ inputs.file_extensions }}
-        XML_MODEL_VALIDATOR_INPUT_CHANGED_ONLY: ${{ inputs.changed_only }}
+        XML_MODEL_VALIDATOR_INPUT_CHANGED_FILES_ONLY: ${{ inputs.changed_files_only }}
         XML_MODEL_VALIDATOR_INPUT_CHANGED_SOURCE: ${{ inputs.changed_source }}
         XML_MODEL_VALIDATOR_INPUT_JOBS: ${{ inputs.jobs }}
         XML_MODEL_VALIDATOR_INPUT_CONFIG: ${{ inputs.config }}

@@ -141,7 +141,7 @@ Validate only the XML files changed by the current push or pull request:
 ```yaml
 - uses: adunning/xml-model-validator@v1
   with:
-    changed_only: true
+    changed_files_only: true
 ```
 
 Choose how changed files are discovered:
@@ -149,7 +149,7 @@ Choose how changed files are discovered:
 ```yaml
 - uses: adunning/xml-model-validator@v1
   with:
-    changed_only: true
+    changed_files_only: true
     changed_source: auto # auto | api | git
 ```
 
@@ -158,18 +158,20 @@ Validate explicit files and stop on the first failure:
 ```yaml
 - uses: adunning/xml-model-validator@v1
   with:
-    files: docs/a.xml docs/b.xml
+    files: |
+      docs/a.xml
+      docs/b.xml
     fail_fast: true
 ```
 
 ## Inputs
 
-- `files`: space-separated list of files to validate explicitly
-- `file_list`: newline-delimited file list path
+- `files`: newline-delimited list of files to validate explicitly
+- `files_from`: newline-delimited file list path
 - `directory`: directory to scan recursively
 - `file_extensions`: comma- or whitespace-separated file extensions to discover when scanning directories or changed files; a leading period is optional and the default is `.xml`
-- `changed_only`: validate only files with matching extensions changed by the current push or pull request
-- `changed_source`: source for `changed_only` file discovery (`auto`, `api`, `git`)
+- `changed_files_only`: validate only files with matching extensions changed by the current push or pull request
+- `changed_source`: source for `changed_files_only` file discovery (`auto`, `api`, `git`)
 - `jobs`: number of workers, `0` means automatic
 - `config`: optional TOML validator config file containing schema aliases and
   `xml-model` rules
@@ -186,13 +188,14 @@ Validate explicit files and stop on the first failure:
   be the most common case
 - `fail_fast`: stop after the first failing file
 
-If you do not provide `files`, `file_list`, `directory`, or `changed_only`,
+If you do not provide `files`, `files_from`, `directory`, or `changed_files_only`,
 the action validates all matching files in the repository by default.
 
-Selection precedence is `directory`, then `file_list`, then `files`, then
-`changed_only`, then the repository-wide default.
+The Action accepts at most one selection input at a time. If you provide more
+than one of `files`, `files_from`, `directory`, or `changed_files_only`, the run
+fails with an input error.
 
-When `changed_only: true`:
+When `changed_files_only: true`:
 
 - `changed_source: auto` (default) tries the GitHub API for pull request and
   push events, then falls back to git diff if API discovery is unavailable.
@@ -315,7 +318,7 @@ Remote schema downloads and prepared Schematron artifacts are cached under
 runtime cache and saves a fresh one at the end of each run so those artifacts
 can accumulate safely over time.
 
-The `changed_only` mode expects the repository to be available in the runner,
+The `changed_files_only` mode expects the repository to be available in the runner,
 which normally means using `actions/checkout@v6` earlier in the job.
 
 If you use `changed_source: git`, `fetch-depth: 0` is recommended for reliable
@@ -329,10 +332,51 @@ Build the runnable jar:
 ./mvnw -q -DskipTests package
 ```
 
+## CLI
+
+The CLI requires exactly one input source per invocation:
+
+- `--directory PATH` to scan a directory recursively
+- `--files-from PATH` to read a newline-delimited file list from a file
+- `--files-from -` to read a newline-delimited file list from standard input
+- `FILES...` to validate explicit file paths
+
+The CLI rejects invocations that omit an input source or combine more than one
+input source.
+
+`--files-from` expects one path per line. Blank lines are ignored. When you use
+`--files-from -`, paths are read from standard input, which makes the CLI work
+well in pipelines such as `find ... | xml-model-validator --files-from -`.
+
+File discovery rules:
+
+- `--directory` and `--files-from` apply `--file-extensions`
+- if `--file-extensions` is omitted, discovery defaults to `.xml`
+- if an inline rule sets `--rule-extension` and `--file-extensions` is omitted,
+  discovery uses both `.xml` and that rule extension
+- explicit `FILES...` arguments are validated as given and are not filtered by
+  `--file-extensions`
+
+Exit status:
+
+- `0` means validation succeeded
+- `1` means one or more files failed validation
+- `2` means command-line usage was invalid
+
+Output behaviour:
+
+- by default, successful runs are quiet
+- validation warnings and errors are written to standard error
+- use `--verbose` to print progress information and successful summaries
+
 Run:
 
 ```bash
 java -jar target/xml-model-validator.jar --directory path/to/xml -j 0
+java -jar target/xml-model-validator.jar --verbose --directory path/to/xml -j 0
+find path/to/xml -name '*.xml' -print | java -jar target/xml-model-validator.jar --files-from - -j 0
+java -jar target/xml-model-validator.jar --files-from path/to/files.txt -j 0
+java -jar target/xml-model-validator.jar path/to/a.xml path/to/b.xml -j 0
 java -jar target/xml-model-validator.jar --directory path/to/styles --file-extensions csl -j 0
 java -jar target/xml-model-validator.jar --directory path/to/styles --file-extensions csl --config .xml-validator/config.toml -j 0
 ```

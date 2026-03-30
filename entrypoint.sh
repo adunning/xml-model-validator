@@ -96,7 +96,7 @@ write_changed_files_api() {
     return
   fi
 
-  echo "XML Model Validator changed_only API mode is not supported for event '${GITHUB_EVENT_NAME}'." >&2
+  echo "XML Model Validator changed_files_only API mode is not supported for event '${GITHUB_EVENT_NAME}'." >&2
   return 1
 }
 
@@ -121,6 +121,25 @@ write_changed_files() {
       exit 1
       ;;
   esac
+}
+
+count_selection_inputs() {
+  count=0
+
+  if [ -n "${XML_MODEL_VALIDATOR_INPUT_DIRECTORY:-}" ]; then
+    count=$((count + 1))
+  fi
+  if [ -n "${XML_MODEL_VALIDATOR_INPUT_FILES_FROM:-}" ]; then
+    count=$((count + 1))
+  fi
+  if [ -n "${XML_MODEL_VALIDATOR_INPUT_FILES:-}" ]; then
+    count=$((count + 1))
+  fi
+  if [ "${XML_MODEL_VALIDATOR_INPUT_CHANGED_FILES_ONLY:-false}" = "true" ]; then
+    count=$((count + 1))
+  fi
+
+  printf '%s' "${count}"
 }
 
 set -- java -jar "${JAR_PATH}"
@@ -161,20 +180,31 @@ fi
 
 set -- "$@" -j "${XML_MODEL_VALIDATOR_INPUT_JOBS:-0}"
 
+selection_count="$(count_selection_inputs)"
+if [ "${selection_count}" -gt 1 ]; then
+  echo "XML Model Validator: choose only one of directory, files_from, files, or changed_files_only." >&2
+  exit 1
+fi
+
 if [ -n "${XML_MODEL_VALIDATOR_INPUT_DIRECTORY:-}" ]; then
   set -- "$@" --directory "${XML_MODEL_VALIDATOR_INPUT_DIRECTORY}"
-elif [ -n "${XML_MODEL_VALIDATOR_INPUT_FILE_LIST:-}" ]; then
-  set -- "$@" --file-list "${XML_MODEL_VALIDATOR_INPUT_FILE_LIST}"
+elif [ -n "${XML_MODEL_VALIDATOR_INPUT_FILES_FROM:-}" ]; then
+  set -- "$@" --files-from "${XML_MODEL_VALIDATOR_INPUT_FILES_FROM}"
 elif [ -n "${XML_MODEL_VALIDATOR_INPUT_FILES:-}" ]; then
-  # shellcheck disable=SC2086
-  set -- "$@" ${XML_MODEL_VALIDATOR_INPUT_FILES}
-elif [ "${XML_MODEL_VALIDATOR_INPUT_CHANGED_ONLY:-false}" = "true" ]; then
+  while IFS= read -r file; do
+    if [ -n "${file}" ]; then
+      set -- "$@" "${file}"
+    fi
+  done <<EOF
+${XML_MODEL_VALIDATOR_INPUT_FILES}
+EOF
+elif [ "${XML_MODEL_VALIDATOR_INPUT_CHANGED_FILES_ONLY:-false}" = "true" ]; then
   write_changed_files
   if [ ! -s "${CHANGED_FILE_LIST}" ]; then
     echo "XML Model Validator: no changed files matched the configured extensions; skipping validation." >&2
     exit 0
   fi
-  set -- "$@" --file-list "${CHANGED_FILE_LIST}"
+  set -- "$@" --files-from "${CHANGED_FILE_LIST}"
 else
   set -- "$@" --directory "."
 fi
