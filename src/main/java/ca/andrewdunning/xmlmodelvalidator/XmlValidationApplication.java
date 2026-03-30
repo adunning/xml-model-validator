@@ -230,21 +230,37 @@ public final class XmlValidationApplication {
         }
 
         private List<ValidationResult> validateUntilFailure(List<Path> files) throws Exception {
+            if (permits.availablePermits() == 1) {
+                return validateUntilFailureSerially(files);
+            }
+
             List<ValidationResult> results = new ArrayList<>();
             List<Future<ValidationResult>> futures = new ArrayList<>();
             CompletionService<ValidationResult> completionService = new ExecutorCompletionService<>(executorService);
+            int submitted = 0;
+            int completed = 0;
+            int maxInFlight = permits.availablePermits();
 
-            for (Path file : files) {
-                futures.add(completionService.submit(() -> validateFile(file)));
+            while (submitted < files.size() && submitted < maxInFlight) {
+                int fileIndex = submitted;
+                futures.add(completionService.submit(() -> validateFile(files.get(fileIndex))));
+                submitted += 1;
             }
 
             boolean failureSeen = false;
-            for (int index = 0; index < files.size(); index += 1) {
+            while (completed < submitted) {
                 ValidationResult result = completionService.take().get();
+                completed += 1;
                 results.add(result);
                 if (!result.ok()) {
                     failureSeen = true;
                     break;
+                }
+
+                if (submitted < files.size()) {
+                    int fileIndex = submitted;
+                    futures.add(completionService.submit(() -> validateFile(files.get(fileIndex))));
+                    submitted += 1;
                 }
             }
 
@@ -252,16 +268,39 @@ public final class XmlValidationApplication {
                 for (Future<ValidationResult> future : futures) {
                     future.cancel(true);
                 }
-            } else {
-                for (int index = results.size(); index < files.size(); index += 1) {
-                    try {
-                        results.add(completionService.take().get());
-                    } catch (CancellationException ignored) {
+                results.sort(Comparator.comparing(result -> result.file().toString()));
+                return results;
+            }
+
+            while (completed < submitted) {
+                try {
+                    results.add(completionService.take().get());
+                    completed += 1;
+                    if (submitted < files.size()) {
+                        int fileIndex = submitted;
+                        futures.add(completionService.submit(() -> validateFile(files.get(fileIndex))));
+                        submitted += 1;
                     }
+                } catch (CancellationException ignored) {
+                    completed += 1;
                 }
             }
 
             results.sort(Comparator.comparing(result -> result.file().toString()));
+            return results;
+        }
+
+        private List<ValidationResult> validateUntilFailureSerially(List<Path> files) throws InterruptedException {
+            List<ValidationResult> results = new ArrayList<>();
+
+            for (Path file : files) {
+                ValidationResult result = validateFile(file);
+                results.add(result);
+                if (!result.ok()) {
+                    break;
+                }
+            }
+
             return results;
         }
 
