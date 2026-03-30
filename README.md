@@ -79,7 +79,6 @@ Action inputs:
 - uses: adunning/xml-model-validator@v1
   with:
     directory: styles
-    file_extensions: csl
     xml_model_rule_mode: fallback
     xml_model_rule_directory: styles
     xml_model_rule_extension: csl
@@ -95,7 +94,6 @@ Schematron rules with only Action inputs:
 - uses: adunning/xml-model-validator@v1
   with:
     directory: tei
-    file_extensions: xml
     xml_model_rule_mode: replace
     xml_model_rule_directory: tei
     xml_model_rule_extension: xml
@@ -176,7 +174,8 @@ Validate explicit files and stop on the first failure:
 - `xml_model_rule_directory`: optional directory scope for the inline
   `xml-model` rule
 - `xml_model_rule_extension`: optional file extension scope for the inline
-  `xml-model` rule; a leading period is optional
+  `xml-model` rule; a leading period is optional, and when `file_extensions` is
+  omitted the Action uses this value for file discovery as well
 - `xml_model_declarations`: optional newline-delimited declarations for one
   inline `xml-model` rule; remote schema URLs are supported and are expected to
   be the most common case
