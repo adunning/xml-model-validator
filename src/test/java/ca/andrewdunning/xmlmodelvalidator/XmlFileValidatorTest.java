@@ -194,6 +194,41 @@ final class XmlFileValidatorTest {
   }
 
   @Test
+  void validatesEmbeddedSchematronInIncludedRelaxNgSchema() throws Exception {
+    write("child.rng", """
+        <grammar xmlns="http://relaxng.org/ns/structure/1.0"
+                 xmlns:sch="http://purl.oclc.org/dsdl/schematron">
+          <start>
+            <element name="root">
+              <empty/>
+            </element>
+          </start>
+          <sch:pattern>
+            <sch:rule context="root">
+              <sch:assert test="@id">root must have an id</sch:assert>
+            </sch:rule>
+          </sch:pattern>
+        </grammar>
+        """);
+    write("schema.rng", """
+        <grammar xmlns="http://relaxng.org/ns/structure/1.0">
+          <include href="child.rng"/>
+        </grammar>
+        """);
+    Path xml = write("document.xml", """
+        <?xml version="1.0"?>
+        <?xml-model href="schema.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+        <root/>
+        """);
+
+    ValidationResult result = validator().validate(xml);
+
+    assertFalse(result.ok(), "Expected embedded Schematron in an included grammar to fail");
+    assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("root must have an id")),
+        "Expected the included embedded Schematron assertion to run");
+  }
+
+  @Test
   void validatesEmbeddedSchematronInRelaxNgCompactSchema() throws Exception {
     write("child.rnc", """
         namespace sch = "http://purl.oclc.org/dsdl/schematron"
