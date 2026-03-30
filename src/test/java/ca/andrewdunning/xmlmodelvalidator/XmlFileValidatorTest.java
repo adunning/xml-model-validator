@@ -60,6 +60,23 @@ final class XmlFileValidatorTest {
   }
 
   @Test
+  void prefersRelaxNgCompactSyntaxWhenSchemaMetadataConflicts() throws Exception {
+    write("schema.rnc", """
+        start = element root { empty }
+        """);
+    Path xml = write("document.xml", """
+        <?xml version="1.0"?>
+        <?xml-model href="schema.rnc" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+        <root/>
+        """);
+
+    ValidationResult result = validator().validate(xml);
+
+    assertTrue(result.ok(), "Expected .rnc declarations to prefer Relax NG validation over Schematron parsing");
+    assertTrue(result.issues().isEmpty(), "Expected no Schematron parsing attempt for compact syntax");
+  }
+
+  @Test
   void validatesStandaloneSchematron() throws Exception {
     write("rules.sch", """
         <schema xmlns="http://purl.oclc.org/dsdl/schematron" queryBinding="xslt2">

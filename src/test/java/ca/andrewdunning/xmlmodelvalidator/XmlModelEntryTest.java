@@ -30,6 +30,19 @@ final class XmlModelEntryTest {
     }
 
     @Test
+    void prefersRelaxNgClassificationForCompactSyntaxEvenWithConflictingSchemaNamespace() {
+        XmlModelEntry entry = new XmlModelEntry(
+                "schema.rnc",
+                ValidationSupport.SCHEMATRON_NS,
+                "application/relax-ng-compact-syntax",
+                "");
+
+        assertTrue(entry.matches(SchemaKind.RELAX_NG));
+        assertFalse(entry.matches(SchemaKind.SCHEMATRON));
+        assertFalse(entry.supportsEmbeddedSchematron());
+    }
+
+    @Test
     void recognizesEmbeddedSchematronOnlyForRelaxNgXmlSyntax() {
         XmlModelEntry entry = new XmlModelEntry(
                 "schema.rng",

@@ -198,6 +198,11 @@ final class XmlFileValidator {
     }
 
     private List<ValidationIssue> validateSchematron(Path schemaPath, Path xmlFile, String phase) throws Exception {
+        String filename = schemaPath.getFileName().toString().toLowerCase(Locale.ROOT);
+        if (filename.endsWith(".rnc")) {
+            throw new IllegalArgumentException(
+                    "Schematron validation does not support RELAX NG Compact Syntax schema sources: " + schemaPath);
+        }
         Path preparedSchema = schematronCache.prepare(schemaPath);
         if (preparedSchema == null) {
             return List.of();

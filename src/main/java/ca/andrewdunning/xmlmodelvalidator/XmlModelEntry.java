@@ -35,6 +35,9 @@ record XmlModelEntry(String href, String schemaTypeNamespace, String type, Strin
     }
 
     private boolean isSchematron() {
+        if (isRelaxNg()) {
+            return false;
+        }
         return ValidationSupport.SCHEMATRON_NS.equals(schemaTypeNamespace)
                 || hasExtension(".sch")
                 || hasExtension(".schematron")
