@@ -30,6 +30,7 @@ The validator:
   file extension, including fallback and full inline replacement modes
 - resolves XML paths, caches, and optional aliases against the consuming
   repository when run as a GitHub Action
+- can emit machine-readable JSON reports for automation
 - emits GitHub annotations for validation failures and warnings
 
 ## GitHub Action
@@ -357,6 +358,14 @@ File discovery rules:
 - explicit `FILES...` arguments are validated as given and are not filtered by
   `--file-extensions`
 
+Output formats:
+
+- `--format text` writes human-readable diagnostics
+- `--format github` writes GitHub workflow annotations and summaries
+- `--format json` writes a machine-readable report to standard output
+- if `--format` is omitted, the CLI defaults to `text` locally and `github`
+  inside GitHub Actions
+
 Exit status:
 
 - `0` means validation succeeded
@@ -391,6 +400,12 @@ Show CLI version:
 
 ```bash
 java -jar target/xml-model-validator.jar --version
+```
+
+Write a JSON report:
+
+```bash
+java -jar target/xml-model-validator.jar --format json path/to/a.xml path/to/b.xml
 ```
 
 Verify a published release artifact:

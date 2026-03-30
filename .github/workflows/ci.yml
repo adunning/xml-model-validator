@@ -63,6 +63,68 @@ jobs:
           XML_MODEL_VALIDATOR_INPUT_JOBS="0" \
           bash "${GITHUB_WORKSPACE}/entrypoint.sh"
 
+  action-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set Up Fixture Files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          fixture_dir=".ci-action-fixture"
+          mkdir -p "${fixture_dir}"
+          cat > "${fixture_dir}/schema.rng" <<'EOF'
+          <grammar xmlns="http://relaxng.org/ns/structure/1.0">
+            <start>
+              <element name="root">
+                <empty/>
+              </element>
+            </start>
+          </grammar>
+          EOF
+          cat > "${fixture_dir}/valid.xml" <<'EOF'
+          <?xml version="1.0"?>
+          <?xml-model href="schema.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+          <root/>
+          EOF
+          cat > "${fixture_dir}/manifest.txt" <<'EOF'
+          .ci-action-fixture/valid.xml
+          EOF
+
+      - name: Run Local Action With Directory Input
+        uses: ./
+        with:
+          directory: .ci-action-fixture
+          jobs: 0
+
+      - name: Run Local Action With files_from Input
+        uses: ./
+        with:
+          files_from: .ci-action-fixture/manifest.txt
+          jobs: 0
+
+      - name: Reject Conflicting Action Selectors
+        id: conflicting-selectors
+        continue-on-error: true
+        uses: ./
+        with:
+          directory: .ci-action-fixture
+          files_from: .ci-action-fixture/manifest.txt
+          jobs: 0
+
+      - name: Assert Conflicting Selectors Fail
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ steps.conflicting-selectors.outcome }}" = "failure"
+
           cat > "${repo}/changed.xml" <<'EOF'
           <?xml version="1.0"?>
           <?xml-model href="schema.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
