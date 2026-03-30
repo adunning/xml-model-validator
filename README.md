@@ -73,6 +73,59 @@ Minimal usage:
 That default run validates all matching files in the repository and reports the
 result through annotations and the job summary.
 
+Recommended workflow for most repositories:
+
+Save this workflow as `.github/workflows/validate-xml.yml`:
+
+```yaml
+name: Validate XML
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "**.xml"
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "**.xml"
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate-xml:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate changed XML
+        if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
+        uses: adunning/xml-model-validator@v2
+        with:
+          changed_files_only: true
+
+      - name: Validate full XML set
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        uses: adunning/xml-model-validator@v2
+```
+
+This is the best default for many XML repositories: pull requests and pushes
+stay fast because only changed XML files are checked, while the scheduled run
+catches drift elsewhere in the repository. If your default branch is not
+`main`, replace that value with your repository's default branch name.
+
+If validation also depends on schema or config files, expand the `paths` filter
+or remove it so schema-only changes also trigger validation.
+
 Version tag semantics:
 
 - `@v2` is a floating major tag that tracks the latest `2.x.y` release.
@@ -124,6 +177,10 @@ For repositories that mostly care about pull-request validation, `changed_files_
 plus a saved JSON report is usually the best starting point. For repositories
 that want a full repository check on every run, the default Action invocation is
 usually enough.
+
+If you want both fast review feedback and a periodic full-repository safety
+check, use the recommended workflow above and switch between
+`changed_files_only: true` and a default full run based on `github.event_name`.
 
 ## Common patterns
 
