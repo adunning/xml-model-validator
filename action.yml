@@ -1,9 +1,25 @@
 name: XML Model Validator
-description: Validate XML using xml-model processing instructions with Relax NG and Schematron
+description: Validate XML with xml-model, GitHub annotations, step summaries, and structured outputs
 author: Andrew Dunning
 branding:
   icon: check-circle
   color: blue
+outputs:
+  skipped:
+    description: Whether validation was skipped because no changed files matched the configured extensions
+    value: ${{ steps.validate.outputs.skipped }}
+  files_checked:
+    description: Number of files checked during validation
+    value: ${{ steps.validate.outputs.files_checked }}
+  failed_files:
+    description: Number of files that failed validation
+    value: ${{ steps.validate.outputs.failed_files }}
+  warning_count:
+    description: Number of warning-level issues produced during validation
+    value: ${{ steps.validate.outputs.warning_count }}
+  json_report_path:
+    description: Absolute path to the saved JSON report when json_report_path input is set
+    value: ${{ steps.validate.outputs.json_report_path }}
 inputs:
   files:
     description: Newline-delimited list of files to validate explicitly
@@ -49,6 +65,9 @@ inputs:
     description: Stop after the first file that fails validation
     required: false
     default: "false"
+  json_report_path:
+    description: Optional path, relative to the repository root or absolute, where the Action should save a JSON validation report
+    required: false
 runs:
   using: composite
   steps:
@@ -124,6 +143,7 @@ runs:
         distribution: temurin
         java-version: "25"
     - name: Validate XML
+      id: validate
       shell: bash
       working-directory: ${{ github.action_path }}
       env:
@@ -141,6 +161,7 @@ runs:
         XML_MODEL_VALIDATOR_INPUT_XML_MODEL_RULE_EXTENSION: ${{ inputs.xml_model_rule_extension }}
         XML_MODEL_VALIDATOR_INPUT_XML_MODEL_DECLARATIONS: ${{ inputs.xml_model_declarations }}
         XML_MODEL_VALIDATOR_INPUT_FAIL_FAST: ${{ inputs.fail_fast }}
+        XML_MODEL_VALIDATOR_INPUT_JSON_REPORT_PATH: ${{ inputs.json_report_path }}
         GH_TOKEN: ${{ github.token }}
       run: |
         set -euo pipefail

@@ -3,6 +3,11 @@ package ca.andrewdunning.xmlmodelvalidator;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,6 +20,7 @@ final class JsonValidationReportWriter {
 
     String write(List<ValidationResult> results, int filesChecked, int failedFiles, int warningCount, Duration elapsed) {
         JsonSummary summary = new JsonSummary(
+                false,
                 filesChecked,
                 filesChecked - failedFiles,
                 failedFiles,
@@ -41,6 +47,36 @@ final class JsonValidationReportWriter {
             return JSON_MAPPER.writeValueAsString(new JsonReport(summary, jsonResults));
         } catch (JsonProcessingException exception) {
             throw new IllegalStateException("Could not serialize JSON validation report", exception);
+        }
+    }
+
+    void writeToFile(
+            Path path,
+            List<ValidationResult> results,
+            int filesChecked,
+            int failedFiles,
+            int warningCount,
+            Duration elapsed) {
+        try {
+            Files.writeString(
+                    path,
+                    write(results, filesChecked, failedFiles, warningCount, elapsed),
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.WRITE);
+        } catch (IOException exception) {
+            throw new IllegalStateException("Could not write JSON validation report to " + path, exception);
+        }
+    }
+
+    String writeSkippedSummary() {
+        try {
+            return JSON_MAPPER.writeValueAsString(new JsonReport(
+                    new JsonSummary(true, 0, 0, 0, 0, 0.0),
+                    List.of()));
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Could not serialize skipped JSON validation report", exception);
         }
     }
 
@@ -72,7 +108,13 @@ final class JsonValidationReportWriter {
     private record JsonReport(JsonSummary summary, List<JsonResult> results) {
     }
 
-    private record JsonSummary(int filesChecked, int okFiles, int failedFiles, int warningCount, double elapsedSeconds) {
+    private record JsonSummary(
+            boolean skipped,
+            int filesChecked,
+            int okFiles,
+            int failedFiles,
+            int warningCount,
+            double elapsedSeconds) {
     }
 
     private record JsonResult(String file, boolean ok, List<JsonIssue> issues) {

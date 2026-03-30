@@ -8,6 +8,8 @@ ACTION_ROOT=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 JAR_CACHE_DIR="${XML_MODEL_VALIDATOR_CACHE_HOME}/jar"
 JAR_PATH="${JAR_CACHE_DIR}/xml-model-validator.jar"
 CHANGED_FILE_LIST="${RUNNER_TEMP}/xml-model-validator-changed-files.txt"
+SUMMARY_JSON_FILE="${RUNNER_TEMP}/xml-model-validator-summary.json"
+JSON_REPORT_DESTINATION=""
 
 mkdir -p "${HOME}/.m2/repository" "${HOME}/.m2/wrapper"
 mkdir -p \
@@ -161,7 +163,100 @@ describe_selection_inputs() {
   printf '%s' "${selections# }"
 }
 
+append_step_summary() {
+  if [ -z "${GITHUB_STEP_SUMMARY:-}" ]; then
+    return
+  fi
+
+  cat >> "${GITHUB_STEP_SUMMARY}" <<'EOF'
+## XML Validation
+
+Validation was skipped because no changed files matched the configured extensions.
+
+EOF
+
+  if [ -n "${XML_MODEL_VALIDATOR_SUMMARY_SELECTION:-}" ] || [ -n "${XML_MODEL_VALIDATOR_SUMMARY_CONFIG:-}" ] || [ -n "${XML_MODEL_VALIDATOR_SUMMARY_FILE_EXTENSIONS:-}" ]; then
+    {
+      printf '%s\n' "### Run Context"
+      printf '\n'
+      printf '%s\n' "| Setting | Value |"
+      printf '%s\n' "| --- | --- |"
+      if [ -n "${XML_MODEL_VALIDATOR_SUMMARY_SELECTION:-}" ]; then
+        printf '| %s | %s |\n' "Selection" "${XML_MODEL_VALIDATOR_SUMMARY_SELECTION}"
+      fi
+      if [ -n "${XML_MODEL_VALIDATOR_SUMMARY_CONFIG:-}" ]; then
+        printf '| %s | `%s` |\n' "Config" "${XML_MODEL_VALIDATOR_SUMMARY_CONFIG}"
+      fi
+      if [ -n "${XML_MODEL_VALIDATOR_SUMMARY_FILE_EXTENSIONS:-}" ]; then
+        printf '| %s | `%s` |\n' "File extensions" "${XML_MODEL_VALIDATOR_SUMMARY_FILE_EXTENSIONS}"
+      fi
+      printf '\n'
+    } >> "${GITHUB_STEP_SUMMARY}"
+  fi
+}
+
+append_action_outputs() {
+  if [ -z "${GITHUB_OUTPUT:-}" ]; then
+    return
+  fi
+
+  {
+    printf '%s\n' "skipped=$1"
+    printf '%s\n' "files_checked=$2"
+    printf '%s\n' "failed_files=$3"
+    printf '%s\n' "warning_count=$4"
+    printf '%s\n' "json_report_path=$5"
+  } >> "${GITHUB_OUTPUT}"
+}
+
+resolve_json_report_destination() {
+  if [ -z "${XML_MODEL_VALIDATOR_INPUT_JSON_REPORT_PATH:-}" ]; then
+    return
+  fi
+
+  case "${XML_MODEL_VALIDATOR_INPUT_JSON_REPORT_PATH}" in
+    /*)
+      JSON_REPORT_DESTINATION="${XML_MODEL_VALIDATOR_INPUT_JSON_REPORT_PATH}"
+      ;;
+    *)
+      JSON_REPORT_DESTINATION="${XML_MODEL_VALIDATOR_WORKSPACE}/${XML_MODEL_VALIDATOR_INPUT_JSON_REPORT_PATH}"
+      ;;
+  esac
+}
+
+write_skipped_summary_json() {
+  if [ -z "${XML_MODEL_VALIDATOR_SUMMARY_FILE:-}" ]; then
+    return
+  fi
+
+  printf '%s\n' '{"summary":{"skipped":true,"filesChecked":0,"okFiles":0,"failedFiles":0,"warningCount":0,"elapsedSeconds":0.0},"results":[]}' > "${XML_MODEL_VALIDATOR_SUMMARY_FILE}"
+}
+
+persist_json_report() {
+  if [ -z "${JSON_REPORT_DESTINATION}" ] || [ ! -f "${SUMMARY_JSON_FILE}" ]; then
+    return
+  fi
+
+  mkdir -p "$(dirname "${JSON_REPORT_DESTINATION}")"
+  cp "${SUMMARY_JSON_FILE}" "${JSON_REPORT_DESTINATION}"
+}
+
 set -- java -jar "${JAR_PATH}"
+
+resolve_json_report_destination
+
+if [ -n "${JSON_REPORT_DESTINATION}" ]; then
+  export XML_MODEL_VALIDATOR_SUMMARY_JSON_REPORT_PATH="${JSON_REPORT_DESTINATION}"
+else
+  unset XML_MODEL_VALIDATOR_SUMMARY_JSON_REPORT_PATH
+fi
+
+if [ -n "${GITHUB_OUTPUT:-}" ] || [ -n "${JSON_REPORT_DESTINATION}" ]; then
+  export XML_MODEL_VALIDATOR_SUMMARY_FILE="${SUMMARY_JSON_FILE}"
+  rm -f "${SUMMARY_JSON_FILE}"
+else
+  unset XML_MODEL_VALIDATOR_SUMMARY_FILE
+fi
 
 if [ -n "${XML_MODEL_VALIDATOR_INPUT_CONFIG:-}" ]; then
   set -- "$@" --config "${XML_MODEL_VALIDATOR_INPUT_CONFIG}"
@@ -193,6 +288,18 @@ if [ -n "${XML_MODEL_VALIDATOR_INPUT_FILE_EXTENSIONS:-}" ]; then
   set -- "$@" --file-extensions "${XML_MODEL_VALIDATOR_INPUT_FILE_EXTENSIONS}"
 fi
 
+if [ -n "${XML_MODEL_VALIDATOR_INPUT_CONFIG:-}" ]; then
+  export XML_MODEL_VALIDATOR_SUMMARY_CONFIG="${XML_MODEL_VALIDATOR_INPUT_CONFIG}"
+else
+  export XML_MODEL_VALIDATOR_SUMMARY_CONFIG=".xml-validator/config.toml"
+fi
+
+if [ -n "${XML_MODEL_VALIDATOR_INPUT_FILE_EXTENSIONS:-}" ]; then
+  export XML_MODEL_VALIDATOR_SUMMARY_FILE_EXTENSIONS="${XML_MODEL_VALIDATOR_INPUT_FILE_EXTENSIONS}"
+else
+  export XML_MODEL_VALIDATOR_SUMMARY_FILE_EXTENSIONS=".xml"
+fi
+
 if [ "${XML_MODEL_VALIDATOR_INPUT_FAIL_FAST:-false}" = "true" ]; then
   set -- "$@" --fail-fast
 fi
@@ -206,10 +313,13 @@ if [ "${selection_count}" -gt 1 ]; then
 fi
 
 if [ -n "${XML_MODEL_VALIDATOR_INPUT_DIRECTORY:-}" ]; then
+  export XML_MODEL_VALIDATOR_SUMMARY_SELECTION="directory:${XML_MODEL_VALIDATOR_INPUT_DIRECTORY}"
   set -- "$@" --directory "${XML_MODEL_VALIDATOR_INPUT_DIRECTORY}"
 elif [ -n "${XML_MODEL_VALIDATOR_INPUT_FILES_FROM:-}" ]; then
+  export XML_MODEL_VALIDATOR_SUMMARY_SELECTION="files_from:${XML_MODEL_VALIDATOR_INPUT_FILES_FROM}"
   set -- "$@" --files-from "${XML_MODEL_VALIDATOR_INPUT_FILES_FROM}"
 elif [ -n "${XML_MODEL_VALIDATOR_INPUT_FILES:-}" ]; then
+  export XML_MODEL_VALIDATOR_SUMMARY_SELECTION="files"
   while IFS= read -r file; do
     if [ -n "${file}" ]; then
       set -- "$@" "${file}"
@@ -218,13 +328,20 @@ elif [ -n "${XML_MODEL_VALIDATOR_INPUT_FILES:-}" ]; then
 ${XML_MODEL_VALIDATOR_INPUT_FILES}
 EOF
 elif [ "${XML_MODEL_VALIDATOR_INPUT_CHANGED_FILES_ONLY:-false}" = "true" ]; then
+  export XML_MODEL_VALIDATOR_SUMMARY_SELECTION="changed_files_only:${XML_MODEL_VALIDATOR_INPUT_CHANGED_SOURCE:-auto}"
   write_changed_files
   if [ ! -s "${CHANGED_FILE_LIST}" ]; then
+    write_skipped_summary_json
+    persist_json_report
+    echo "::notice title=XML Validation::Validation skipped because no changed files matched the configured extensions."
+    append_step_summary
+    append_action_outputs "true" "0" "0" "0" "${JSON_REPORT_DESTINATION}"
     echo "XML Model Validator: no changed files matched the configured extensions; skipping validation." >&2
     exit 0
   fi
   set -- "$@" --files-from "${CHANGED_FILE_LIST}"
 else
+  export XML_MODEL_VALIDATOR_SUMMARY_SELECTION="directory:."
   set -- "$@" --directory "."
 fi
 
@@ -234,4 +351,19 @@ if [ ! -f "${JAR_PATH}" ]; then
   cp "${ACTION_ROOT}/target/xml-model-validator.jar" "${JAR_PATH}"
 fi
 
-exec "$@"
+set +e
+"$@"
+status=$?
+set -e
+
+if [ -n "${GITHUB_OUTPUT:-}" ] && [ -f "${SUMMARY_JSON_FILE}" ]; then
+  persist_json_report
+  append_action_outputs \
+    "false" \
+    "$(jq -r '.summary.filesChecked' "${SUMMARY_JSON_FILE}")" \
+    "$(jq -r '.summary.failedFiles' "${SUMMARY_JSON_FILE}")" \
+    "$(jq -r '.summary.warningCount' "${SUMMARY_JSON_FILE}")" \
+    "${JSON_REPORT_DESTINATION}"
+fi
+
+exit "${status}"

@@ -99,9 +99,11 @@ jobs:
           EOF
 
       - name: Run Local Action With Directory Input
+        id: action-directory
         uses: ./
         with:
           directory: .ci-action-fixture
+          json_report_path: .ci-action-fixture/report.json
           jobs: 0
 
       - name: Run Local Action With files_from Input
@@ -109,6 +111,19 @@ jobs:
         with:
           files_from: .ci-action-fixture/manifest.txt
           jobs: 0
+
+      - name: Assert Action Outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ steps.action-directory.outputs.skipped }}" = "false"
+          test "${{ steps.action-directory.outputs.files_checked }}" = "1"
+          test "${{ steps.action-directory.outputs.failed_files }}" = "0"
+          test "${{ steps.action-directory.outputs.warning_count }}" = "0"
+          test "${{ steps.action-directory.outputs.json_report_path }}" = "${GITHUB_WORKSPACE}/.ci-action-fixture/report.json"
+          test -f .ci-action-fixture/report.json
+          jq -e '.summary.skipped == false' .ci-action-fixture/report.json >/dev/null
+          jq -e '.summary.filesChecked == 1' .ci-action-fixture/report.json >/dev/null
 
       - name: Reject Conflicting Action Selectors
         id: conflicting-selectors
