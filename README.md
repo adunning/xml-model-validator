@@ -1,4 +1,4 @@
-# xml-model-validator
+# XML Model Validator
 
 Validate XML from `xml-model` processing instructions with a GitHub Action and
 CLI built for Relax NG and Schematron-heavy workflows such as TEI, DocBook,
@@ -63,7 +63,7 @@ Typical workflow:
 3. inspect annotations and the step summary in GitHub
 4. optionally use the structured outputs or saved JSON report in later steps
 
-Minimal usage:
+### Minimal usage
 
 ```yaml
 - uses: actions/checkout@v6
@@ -73,7 +73,7 @@ Minimal usage:
 That default run validates all matching files in the repository and reports the
 result through annotations and the job summary.
 
-Recommended workflow for most repositories:
+### Recommended workflow for most repositories
 
 Save this workflow as `.github/workflows/validate-xml.yml`:
 
@@ -104,8 +104,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
       - name: Validate changed XML
         if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
@@ -125,6 +123,8 @@ catches drift elsewhere in the repository. If your default branch is not
 
 If validation also depends on schema or config files, expand the `paths` filter
 or remove it so schema-only changes also trigger validation.
+
+### Advanced usage
 
 Version tag semantics:
 
