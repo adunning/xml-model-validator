@@ -1,5 +1,5 @@
 name: XML Model Validator
-description: Validate XML with xml-model, GitHub annotations, step summaries, and structured outputs
+description: Validate xml-model XML with Relax NG and Schematron for TEI, DocBook, JATS, and other complex XML workflows
 author: Andrew Dunning
 branding:
   icon: check-circle

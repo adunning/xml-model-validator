@@ -1,7 +1,8 @@
 # xml-model-validator
 
 Validate XML from `xml-model` processing instructions with a GitHub Action and
-CLI built for Relax NG and Schematron-heavy repositories.
+CLI built for Relax NG and Schematron-heavy workflows such as TEI, DocBook,
+JATS, and other complex XML repositories.
 
 It is designed to feel native in GitHub:
 
@@ -40,6 +41,11 @@ The validator:
 - can emit machine-readable JSON reports for automation
 - emits GitHub annotations for validation failures and warnings
 - writes GitHub step summaries for Action runs, including skipped changed-file checks
+
+It is a good fit for repositories that keep validation rules in `xml-model`
+processing instructions and want pull-request feedback directly in GitHub,
+including scholarly editing, technical publishing, journal/article XML, and
+other custom XML workflows.
 
 ## GitHub Action
 
