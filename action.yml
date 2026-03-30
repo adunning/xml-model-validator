@@ -83,9 +83,14 @@ runs:
 
         jar_hash="$(hash_inputs pom.xml mvnw .mvn/wrapper src/main)"
         maven_hash="$(hash_inputs pom.xml .mvn/wrapper/maven-wrapper.properties)"
+        runtime_hash="$(hash_inputs pom.xml mvnw .mvn/wrapper src/main action.yml entrypoint.sh)"
+        runtime_prefix="xml-model-validator-runtime-${{ runner.os }}-${runtime_hash}"
+        runtime_key="${runtime_prefix}-${{ github.run_id }}-${{ github.run_attempt }}"
 
         echo "jar=xml-model-validator-jar-${{ runner.os }}-${jar_hash}" >> "${GITHUB_OUTPUT}"
         echo "maven=xml-model-validator-maven-${{ runner.os }}-${maven_hash}" >> "${GITHUB_OUTPUT}"
+        echo "runtime_prefix=${runtime_prefix}" >> "${GITHUB_OUTPUT}"
+        echo "runtime=${runtime_key}" >> "${GITHUB_OUTPUT}"
     - name: Restore Validator Runtime Cache
       id: restore-runtime-cache
       uses: actions/cache/restore@v5
@@ -93,8 +98,9 @@ runs:
         path: |
           ~/.cache/xml-model-validator/schema-downloads
           ~/.cache/xml-model-validator/schematron
-        key: xml-model-validator-runtime-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+        key: ${{ steps.cache-keys.outputs.runtime }}
         restore-keys: |
+          ${{ steps.cache-keys.outputs.runtime_prefix }}-
           xml-model-validator-runtime-${{ runner.os }}-
     - name: Restore Validator Jar Cache
       id: restore-jar-cache
@@ -146,7 +152,7 @@ runs:
         path: |
           ~/.cache/xml-model-validator/schema-downloads
           ~/.cache/xml-model-validator/schematron
-        key: xml-model-validator-runtime-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+        key: ${{ steps.cache-keys.outputs.runtime }}
     - name: Save Validator Jar Cache
       if: always() && steps.restore-jar-cache.outputs.cache-hit != 'true'
       uses: actions/cache/save@v5
