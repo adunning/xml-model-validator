@@ -2,6 +2,8 @@ package ca.andrewdunning.xmlmodelvalidator;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,8 +15,10 @@ import java.util.Locale;
  * Immutable command-line arguments for the validator application.
  */
 final class ValidationArguments {
+    private static final Path STANDARD_INPUT = Path.of("-");
+
     private final Path directory;
-    private final Path fileList;
+    private final Path filesFrom;
     private final Path configFile;
     private final List<Path> explicitFiles;
     private final List<String> fileExtensions;
@@ -24,7 +28,7 @@ final class ValidationArguments {
 
     private ValidationArguments(
             Path directory,
-            Path fileList,
+            Path filesFrom,
             Path configFile,
             List<Path> explicitFiles,
             List<String> fileExtensions,
@@ -32,7 +36,7 @@ final class ValidationArguments {
             boolean failFast,
             boolean directoryMode) {
         this.directory = directory;
-        this.fileList = fileList;
+        this.filesFrom = filesFrom;
         this.configFile = configFile;
         this.explicitFiles = explicitFiles;
         this.fileExtensions = fileExtensions;
@@ -45,13 +49,13 @@ final class ValidationArguments {
      * Builds normalized runtime arguments from CLI option values.
      *
      * Explicit file extensions take precedence over inline rule extensions. When
-     * no file extensions are supplied, directory and file-list discovery defaults
+     * no file extensions are supplied, directory and files-from discovery defaults
      * to {@code .xml} and also includes an inline rule extension when one is
      * provided.
      */
     static ValidationArguments fromCli(
             Path directory,
-            Path fileList,
+            Path filesFrom,
             Path configFile,
             List<Path> explicitFiles,
             List<String> fileExtensions,
@@ -61,9 +65,7 @@ final class ValidationArguments {
         Path normalizedDirectory = directory == null
                 ? null
                 : ValidationSupport.resolveAgainstWorkspace(directory);
-        Path normalizedFileList = fileList == null
-                ? null
-                : ValidationSupport.resolveAgainstWorkspace(fileList);
+        Path normalizedFilesFrom = normalizeFilesFrom(filesFrom);
         Path normalizedConfigFile = configFile == null
                 ? ValidationSupport.DEFAULT_CONFIG_FILE
                 : ValidationSupport.resolveAgainstWorkspace(configFile);
@@ -80,10 +82,10 @@ final class ValidationArguments {
         }
         List<String> normalizedFileExtensions = normalizeFileExtensions(effectiveFileExtensions);
 
-        boolean directoryMode = normalizedDirectory != null && normalizedFileList == null && files.isEmpty();
+        boolean directoryMode = normalizedDirectory != null;
         return new ValidationArguments(
                 normalizedDirectory,
-                normalizedFileList,
+                normalizedFilesFrom,
                 normalizedConfigFile,
                 files,
                 normalizedFileExtensions,
@@ -94,11 +96,15 @@ final class ValidationArguments {
 
     /**
      * Resolves the effective set of files to validate from the provided
-     * directory, file list, or explicit paths.
+     * directory, files-from source, or explicit paths.
      */
     List<Path> resolveFiles() throws IOException {
-        if (fileList != null) {
-            try (BufferedReader reader = Files.newBufferedReader(fileList, StandardCharsets.UTF_8)) {
+        return resolveFiles(System.in);
+    }
+
+    List<Path> resolveFiles(InputStream standardInput) throws IOException {
+        if (filesFrom != null) {
+            try (BufferedReader reader = openFilesFromReader(standardInput)) {
                 return reader.lines()
                         .map(String::trim)
                         .filter(line -> !line.isEmpty())
@@ -122,6 +128,23 @@ final class ValidationArguments {
                 .map(ValidationSupport::resolveAgainstWorkspace)
                 .sorted()
                 .toList();
+    }
+
+    private static Path normalizeFilesFrom(Path filesFrom) {
+        if (filesFrom == null) {
+            return null;
+        }
+        if (STANDARD_INPUT.equals(filesFrom)) {
+            return STANDARD_INPUT;
+        }
+        return ValidationSupport.resolveAgainstWorkspace(filesFrom);
+    }
+
+    private BufferedReader openFilesFromReader(InputStream standardInput) throws IOException {
+        if (STANDARD_INPUT.equals(filesFrom)) {
+            return new BufferedReader(new InputStreamReader(standardInput, StandardCharsets.UTF_8));
+        }
+        return Files.newBufferedReader(filesFrom, StandardCharsets.UTF_8);
     }
 
     private static List<String> normalizeFileExtensions(List<String> fileExtensions) {

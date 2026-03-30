@@ -3,6 +3,7 @@ package ca.andrewdunning.xmlmodelvalidator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -44,7 +45,7 @@ final class ValidationArgumentsTest {
     }
 
     @Test
-    void prefersFileListOverDirectory() throws Exception {
+    void resolvesFilesFromList() throws Exception {
         Path listed = temporaryDirectory.resolve("listed.xml");
         Files.writeString(listed, "<root/>", StandardCharsets.UTF_8);
         Files.writeString(temporaryDirectory.resolve("other.xml"), "<root/>", StandardCharsets.UTF_8);
@@ -62,6 +63,27 @@ final class ValidationArgumentsTest {
                 false);
 
         List<Path> files = arguments.resolveFiles();
+
+        assertEquals(List.of(listed.toAbsolutePath().normalize()), files);
+    }
+
+    @Test
+    void resolvesFilesFromStandardInput() throws Exception {
+        Path listed = temporaryDirectory.resolve("listed.xml");
+        Files.writeString(listed, "<root/>", StandardCharsets.UTF_8);
+
+        ValidationArguments arguments = ValidationArguments.fromCli(
+                null,
+                Path.of("-"),
+                null,
+                List.of(),
+                List.of(),
+                null,
+                0,
+                false);
+
+        List<Path> files = arguments.resolveFiles(new ByteArrayInputStream(
+                (listed + System.lineSeparator()).getBytes(StandardCharsets.UTF_8)));
 
         assertEquals(List.of(listed.toAbsolutePath().normalize()), files);
     }

@@ -62,7 +62,7 @@ final class ValidationReporterTest {
 
     @Test
     void emitsGithubAnnotationsWithoutDuplicateConsoleIssueLines() {
-        ValidationReporter reporter = new ValidationReporter(true);
+        ValidationReporter reporter = new ValidationReporter(true, false);
         ValidationResult result = new ValidationResult(
                 Path.of("document.xml"),
                 false,

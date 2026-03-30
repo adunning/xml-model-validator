@@ -9,16 +9,21 @@ import java.util.List;
  */
 final class ValidationReporter {
     private final boolean githubActions;
+    private final boolean verbose;
 
     ValidationReporter() {
-        this("true".equalsIgnoreCase(System.getenv("GITHUB_ACTIONS")));
+        this("true".equalsIgnoreCase(System.getenv("GITHUB_ACTIONS")), false);
     }
 
-    ValidationReporter(boolean githubActions) {
+    ValidationReporter(boolean githubActions, boolean verbose) {
         this.githubActions = githubActions;
+        this.verbose = verbose;
     }
 
     void emitStartup(List<java.nio.file.Path> files, int workers, boolean directoryMode) {
+        if (!verbose) {
+            return;
+        }
         System.err.printf("INFO: Validating %d file(s) with %d worker(s) ...%n", files.size(), workers);
         if (!directoryMode) {
             System.err.println("INFO: Files to be validated:");
@@ -45,7 +50,9 @@ final class ValidationReporter {
 
         double seconds = elapsed.toMillis() / 1000.0;
         if (failedFiles == 0) {
-            System.err.printf("INFO: Validated %d file(s): all OK in %.2fs%n", results.size(), seconds);
+            if (verbose) {
+                System.err.printf("INFO: Validated %d file(s): all OK in %.2fs%n", results.size(), seconds);
+            }
             if (githubActions) {
                 System.out.printf("::notice title=XML Validation::Validated %d file(s) in %.2fs with %d warning(s)%n",
                         results.size(), seconds, warningCount);

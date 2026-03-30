@@ -44,7 +44,7 @@ final class XmlValidationApplicationTest {
                 null,
                 1,
                 false);
-        XmlValidationApplication application = createApplication(Map.of(), List.of());
+        XmlValidationApplication application = createApplication(Map.of(), List.of(), false);
 
         int exitCode = invokeRun(application, arguments, arguments.resolveFiles());
 
@@ -79,7 +79,7 @@ final class XmlValidationApplicationTest {
                 null,
                 1,
                 true);
-        XmlValidationApplication application = createApplication(Map.of(), List.of());
+        XmlValidationApplication application = createApplication(Map.of(), List.of(), false);
         List<Path> files = arguments.resolveFiles();
 
         List<ValidationResult> results = invokeValidateFiles(application, arguments, files, 1);
@@ -90,7 +90,7 @@ final class XmlValidationApplicationTest {
     }
 
     @Test
-    void reportsConfiguredWorkerCount() throws Exception {
+    void remainsQuietOnSuccessByDefault() throws Exception {
         writeRelaxNgSchema("schema.rng");
         Path valid = writeXml("single.xml", """
                 <?xml version="1.0"?>
@@ -107,7 +107,7 @@ final class XmlValidationApplicationTest {
                 null,
                 2,
                 false);
-        XmlValidationApplication application = createApplication(Map.of(), List.of());
+        XmlValidationApplication application = createApplication(Map.of(), List.of(), false);
         ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
         PrintStream originalErr = System.err;
 
@@ -119,7 +119,52 @@ final class XmlValidationApplicationTest {
         }
 
         String stderr = stderrBuffer.toString(StandardCharsets.UTF_8);
-        assertTrue(stderr.contains("Validating 1 file(s) with 2 worker(s)"));
+        assertTrue(stderr.isBlank());
+    }
+
+    @Test
+    void executePrintsProgressWhenVerbose() throws Exception {
+        writeRelaxNgSchema("schema.rng");
+        writeXml("single.xml", """
+                <?xml version="1.0"?>
+                <?xml-model href="schema.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+                <root/>
+                """);
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+        PrintStream originalErr = System.err;
+
+        int exitCode;
+        try {
+            System.setErr(new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+            exitCode = XmlValidationApplication.execute(
+                    new String[] { "--verbose", temporaryDirectory.resolve("single.xml").toString() },
+                    new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                    new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+        } finally {
+            System.setErr(originalErr);
+        }
+
+        assertEquals(0, exitCode);
+        String stderr = stderrBuffer.toString(StandardCharsets.UTF_8);
+        assertTrue(stderr.contains("Validating 1 file(s) with "));
+        assertTrue(stderr.contains("Validated 1 file(s): all OK"));
+    }
+
+    @Test
+    void executeReturnsOneWhenNoMatchingFilesAreFound() throws Exception {
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+
+        int exitCode = XmlValidationApplication.execute(
+                new String[] { "--directory", temporaryDirectory.toString(), "--file-extensions", "csl" },
+                new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+
+        assertEquals(1, exitCode);
+        String stderr = stderrBuffer.toString(StandardCharsets.UTF_8);
+        assertTrue(stderr.contains("No matching files found to validate"));
+        assertTrue(stdoutBuffer.toString(StandardCharsets.UTF_8).isBlank());
     }
 
     @Test
@@ -184,6 +229,85 @@ final class XmlValidationApplicationTest {
         String stderr = stderrBuffer.toString(StandardCharsets.UTF_8);
         assertTrue(stderr.contains("Missing required parameter"));
         assertTrue(stdoutBuffer.toString(StandardCharsets.UTF_8).isBlank());
+    }
+
+    @Test
+    void executeReturnsTwoWhenNoInputSourceIsProvided() throws Exception {
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+
+        int exitCode = XmlValidationApplication.execute(
+                new String[0],
+                new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+
+        assertEquals(2, exitCode);
+        String stderr = stderrBuffer.toString(StandardCharsets.UTF_8);
+        assertTrue(stderr.contains("Usage: xml-model-validator"));
+        assertTrue(stdoutBuffer.toString(StandardCharsets.UTF_8).isBlank());
+    }
+
+    @Test
+    void executeReturnsTwoForConflictingInputSources() throws Exception {
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+
+        int exitCode = XmlValidationApplication.execute(
+                new String[] { "--directory", temporaryDirectory.toString(), "document.xml" },
+                new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+
+        assertEquals(2, exitCode);
+        String stderr = stderrBuffer.toString(StandardCharsets.UTF_8);
+        assertFalse(stderr.isBlank());
+        assertTrue(stderr.contains("Usage: xml-model-validator"));
+        assertTrue(stdoutBuffer.toString(StandardCharsets.UTF_8).isBlank());
+    }
+
+    @Test
+    void executeReturnsTwoForNegativeJobs() throws Exception {
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+
+        int exitCode = XmlValidationApplication.execute(
+                new String[] { "--jobs", "-1" },
+                new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+
+        assertEquals(2, exitCode);
+        String stderr = stderrBuffer.toString(StandardCharsets.UTF_8);
+        assertTrue(stderr.contains("--jobs must be 0 or greater"));
+        assertTrue(stdoutBuffer.toString(StandardCharsets.UTF_8).isBlank());
+    }
+
+    @Test
+    void executeAcceptsFilesFromStandardInput() throws Exception {
+        writeRelaxNgSchema("schema.rng");
+        Path valid = writeXml("record.xml", """
+                <?xml version="1.0"?>
+                <?xml-model href="schema.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+                <root/>
+                """);
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+        PrintStream originalErr = System.err;
+        java.io.InputStream originalIn = System.in;
+
+        int exitCode;
+        try {
+            System.setIn(new java.io.ByteArrayInputStream((valid + System.lineSeparator()).getBytes(StandardCharsets.UTF_8)));
+            System.setErr(new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+            exitCode = XmlValidationApplication.execute(
+                    new String[] { "--files-from", "-" },
+                    new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                    new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+        } finally {
+            System.setIn(originalIn);
+            System.setErr(originalErr);
+        }
+
+        assertEquals(0, exitCode);
+        assertFalse(stderrBuffer.toString(StandardCharsets.UTF_8).contains("No matching files found"));
     }
 
     @Test
@@ -371,11 +495,16 @@ final class XmlValidationApplicationTest {
         ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
 
         int exitCode = XmlValidationApplication.execute(
-                new String[] { "--config", temporaryDirectory.resolve("missing.toml").toString() },
+                new String[] {
+                        "--directory",
+                        temporaryDirectory.toString(),
+                        "--config",
+                        temporaryDirectory.resolve("missing.toml").toString()
+                },
                 new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
                 new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
 
-        assertEquals(1, exitCode);
+        assertEquals(2, exitCode);
         assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).contains("does not exist"));
     }
 
@@ -395,8 +524,29 @@ final class XmlValidationApplicationTest {
                 new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
                 new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
 
-        assertEquals(1, exitCode);
+        assertEquals(2, exitCode);
         assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).contains("--xml-model-declaration"));
+    }
+
+    @Test
+    void executeReturnsTwoForUnsupportedRuleMode() throws Exception {
+        ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+
+        int exitCode = XmlValidationApplication.execute(
+                new String[] {
+                        "--rule-mode",
+                        "invalid",
+                        "--xml-model-declaration",
+                        "href=\"schema.rng\" schematypens=\"http://relaxng.org/ns/structure/1.0\""
+                },
+                new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+
+        assertEquals(2, exitCode);
+        String stderr = stderrBuffer.toString(StandardCharsets.UTF_8);
+        assertTrue(stderr.contains("invalid"));
+        assertTrue(stdoutBuffer.toString(StandardCharsets.UTF_8).isBlank());
     }
 
     @Test
@@ -469,11 +619,11 @@ final class XmlValidationApplicationTest {
         assertEquals(0, exitCode);
     }
 
-    private XmlValidationApplication createApplication(Map<String, Path> schemaAliases, List<XmlModelRule> xmlModelRules) throws Exception {
+    private XmlValidationApplication createApplication(Map<String, Path> schemaAliases, List<XmlModelRule> xmlModelRules, boolean verbose) throws Exception {
         Constructor<XmlValidationApplication> constructor = XmlValidationApplication.class
-                .getDeclaredConstructor(Map.class, List.class);
+                .getDeclaredConstructor(Map.class, List.class, boolean.class);
         constructor.setAccessible(true);
-        return constructor.newInstance(schemaAliases, xmlModelRules);
+        return constructor.newInstance(schemaAliases, xmlModelRules, verbose);
     }
 
     private int invokeRun(XmlValidationApplication application, ValidationArguments arguments, List<Path> files)
