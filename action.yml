@@ -167,7 +167,7 @@ runs:
         set -euo pipefail
         bash "${{ github.action_path }}/entrypoint.sh"
     - name: Save Validator Runtime Cache
-      if: always()
+      if: always() && steps.restore-runtime-cache.outputs.cache-hit != 'true'
       uses: actions/cache/save@v5
       with:
         path: |

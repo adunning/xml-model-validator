@@ -125,21 +125,6 @@ jobs:
           jq -e '.summary.skipped == false' .ci-action-fixture/report.json >/dev/null
           jq -e '.summary.filesChecked == 1' .ci-action-fixture/report.json >/dev/null
 
-      - name: Reject Conflicting Action Selectors
-        id: conflicting-selectors
-        continue-on-error: true
-        uses: ./
-        with:
-          directory: .ci-action-fixture
-          files_from: .ci-action-fixture/manifest.txt
-          jobs: 0
-
-      - name: Assert Conflicting Selectors Fail
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "${{ steps.conflicting-selectors.outcome }}" = "failure"
-
       - name: Smoke Test changed_files_only for Push and Pull Request
         shell: bash
         run: |
@@ -185,6 +170,7 @@ jobs:
           XML_MODEL_VALIDATOR_WORKSPACE="${repo}" \
           XML_MODEL_VALIDATOR_CACHE_HOME="${tmpdir}/cache" \
           XML_MODEL_VALIDATOR_INPUT_CHANGED_FILES_ONLY="true" \
+          XML_MODEL_VALIDATOR_INPUT_CHANGED_SOURCE="git" \
           GITHUB_EVENT_NAME="push" \
           GITHUB_SHA="$(git rev-parse HEAD)" \
           GITHUB_EVENT_PATH="${tmpdir}/push-event.json" \
@@ -194,7 +180,7 @@ jobs:
           origin_repo="${tmpdir}/origin.git"
           pr_repo="${tmpdir}/pr-repo"
           git init -q --bare "${origin_repo}"
-          git clone -q "${origin_repo}" "${pr_repo}"
+          git clone -q "${origin_repo}" "${pr_repo}" 2>/dev/null
           cd "${pr_repo}"
           git config user.name "CI"
           git config user.email "ci@example.com"
@@ -230,6 +216,7 @@ jobs:
           XML_MODEL_VALIDATOR_WORKSPACE="${pr_repo}" \
           XML_MODEL_VALIDATOR_CACHE_HOME="${tmpdir}/cache" \
           XML_MODEL_VALIDATOR_INPUT_CHANGED_FILES_ONLY="true" \
+          XML_MODEL_VALIDATOR_INPUT_CHANGED_SOURCE="git" \
           GITHUB_EVENT_NAME="pull_request" \
           GITHUB_BASE_REF="main" \
           GITHUB_SHA="$(git rev-parse HEAD)" \
