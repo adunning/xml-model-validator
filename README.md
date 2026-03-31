@@ -70,12 +70,48 @@ Typical workflow:
 - uses: adunning/xml-model-validator@v2
 ```
 
-That default run validates all matching files in the repository and reports the
+The default run validates all matching files in the repository and reports the
 result through annotations and the job summary.
 
-### Recommended workflow for most repositories
+### Recommended workflows for most repositories
 
-Save this workflow as `.github/workflows/validate-xml.yml`:
+Save one of these workflows as `.github/workflows/validate-xml.yml`. If your default branch is not
+`main`, replace that value with your repository's default branch name.
+
+#### Validate all XML files on pull requests and pushes
+
+This is a simple configation suitable for repositories with a small number of XML files (in the hundreds rather than thousands) or those that want to validate everything on every run.
+
+```yaml
+name: Validate XML
+
+on:
+  push:
+    paths:
+      - "**.xml"
+  pull_request:
+    paths:
+      - "**.xml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-xml:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate XML
+        uses: adunning/xml-model-validator@v2
+```
+
+#### Validate changed XML on pull requests and pushes, with a weekly full check
+
+In a larger and frequently changing repository, a workflow that validates only the modified XML files reduce the validation time for pull requests and pushes. In the below example, a scheduled run validates the full repository once a week to catch any drift.
+
+If your default branch is not `main`, replace that value with your repository's default branch name.
 
 ```yaml
 name: Validate XML
@@ -96,7 +132,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
 
 jobs:
   validate-xml:
@@ -115,11 +150,6 @@ jobs:
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         uses: adunning/xml-model-validator@v2
 ```
-
-This is the best default for many XML repositories: pull requests and pushes
-stay fast because only changed XML files are checked, while the scheduled run
-catches drift elsewhere in the repository. If your default branch is not
-`main`, replace that value with your repository's default branch name.
 
 If validation also depends on schema or config files, expand the `paths` filter
 or remove it so schema-only changes also trigger validation.
