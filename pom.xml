@@ -35,6 +35,10 @@
     <url>https://github.com/adunning/xml-model-validator</url>
   </scm>
 
+  <issueManagement>
+    <url>https://github.com/adunning/xml-model-validator/issues</url>
+  </issueManagement>
+
   <properties>
     <maven.compiler.release>25</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
