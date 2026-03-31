@@ -141,6 +141,27 @@ runs:
       with:
         distribution: temurin
         java-version: "25"
+    - name: Resolve Release Jar Tag
+      id: resolve-release-jar-tag
+      if: startsWith(github.action_ref, 'v')
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        XML_MODEL_VALIDATOR_ACTION_REF: ${{ github.action_ref }}
+      run: bash "${{ github.action_path }}/scripts/resolve-release-jar-tag.sh"
+    - name: Download Release Jar
+      id: download-release-jar
+      if: steps.restore-jar-cache.outputs.cache-hit != 'true' && steps.resolve-release-jar-tag.outputs.release_tag != ''
+      continue-on-error: true
+      uses: actions/github-script@v8
+      env:
+        XML_MODEL_VALIDATOR_ACTION_REPOSITORY: ${{ github.action_repository }}
+        XML_MODEL_VALIDATOR_RELEASE_TAG: ${{ steps.resolve-release-jar-tag.outputs.release_tag }}
+        GITHUB_TOKEN: ${{ github.token }}
+      with:
+        script: |
+          const { main } = require('${{ github.action_path }}/scripts/download-release-jar.cjs');
+          await main({ github });
     - name: Validate XML
       id: validate
       shell: bash

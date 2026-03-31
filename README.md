@@ -477,8 +477,16 @@ can theoretically reference.
 
 ## Runtime model
 
-The GitHub Action sets up Java internally, builds the shaded jar from the
-action source when needed, then runs it with `java -jar`.
+The GitHub Action sets up Java internally and runs the validator with
+`java -jar`.
+
+When the action is running from a published release ref such as `@v2` or
+`@v2.1.0`, the composite action first resolves the exact release tag from Maven
+project metadata. On a cold runner it then queries the GitHub Releases API for
+the matching release assets, downloads the published jar, and verifies it
+against the published checksum before use. For branch refs and other unreleased
+revisions, or if the release lookup or asset download fails, the action falls
+back to building the shaded jar from source.
 
 The built jar is cached under `~/.cache/xml-model-validator/jar`, and its cache
 key is derived from the action's build inputs so a cached binary is only reused

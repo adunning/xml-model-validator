@@ -17,6 +17,12 @@ mkdir -p \
   "${XML_MODEL_VALIDATOR_CACHE_HOME}/schema-downloads" \
   "${XML_MODEL_VALIDATOR_CACHE_HOME}/schematron"
 
+build_validator_jar() {
+  echo "XML Model Validator: building from source..." >&2
+  (cd "${ACTION_ROOT}" && ./mvnw -B -q package -DskipTests)
+  cp "${ACTION_ROOT}/target/xml-model-validator.jar" "${JAR_PATH}"
+}
+
 ensure_git_history() {
   if [ "$(git rev-parse --is-shallow-repository 2>/dev/null || printf 'false')" = "true" ]; then
     git fetch --no-tags --prune --unshallow origin >/dev/null 2>&1 || true
@@ -405,9 +411,7 @@ else
 fi
 
 if [ ! -f "${JAR_PATH}" ]; then
-  echo "XML Model Validator: building from source..." >&2
-  (cd "${ACTION_ROOT}" && ./mvnw -B -q package -DskipTests)
-  cp "${ACTION_ROOT}/target/xml-model-validator.jar" "${JAR_PATH}"
+  build_validator_jar
 fi
 
 set +e

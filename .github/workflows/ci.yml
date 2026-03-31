@@ -31,6 +31,13 @@ jobs:
       - name: Verify
         run: ./mvnw -B -q verify
 
+      - name: Test Release Helper Scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          sh scripts/resolve-release-jar-tag.test.sh
+          node --test scripts/download-release-jar.test.cjs
+
       - name: Smoke Test
         run: |
           tmpdir="$(mktemp -d)"
