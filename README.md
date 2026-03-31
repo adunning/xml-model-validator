@@ -123,7 +123,6 @@ on:
     paths:
       - "**.xml"
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "**.xml"
   schedule:
