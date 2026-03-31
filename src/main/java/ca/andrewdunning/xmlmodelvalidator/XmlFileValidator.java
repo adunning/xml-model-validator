@@ -233,8 +233,7 @@ final class XmlFileValidator {
         XdmSequenceIterator<XdmItem> iterator = selector.iterator();
         while (iterator.hasNext()) {
             XdmNode issueNode = (XdmNode) iterator.next();
-            String role = attribute(issueNode, "role").toLowerCase(Locale.ROOT);
-            boolean warning = role.equals("warn") || role.equals("warning") || role.equals("nonfatal");
+            boolean warning = isWarning(issueNode);
             String location = attribute(issueNode, "location");
             Integer line = resolveLineNumber(source, namespaceBindings, location);
             String message = issueNode.getStringValue().trim();
@@ -305,6 +304,25 @@ final class XmlFileValidator {
     private static String attribute(XdmNode node, String localName) {
         String value = node.getAttributeValue(new QName(localName));
         return value == null ? "" : value;
+    }
+
+    private static boolean isWarning(XdmNode issueNode) {
+        String severity = attribute(issueNode, "severity").toLowerCase(Locale.ROOT);
+        if (severity.equals("info") || severity.equals("warning")) {
+            return true;
+        }
+        if (severity.equals("error") || severity.equals("fatal")) {
+            return false;
+        }
+
+        String role = attribute(issueNode, "role").toLowerCase(Locale.ROOT);
+        if (role.equals("info") || role.equals("warn") || role.equals("warning") || role.equals("nonfatal")) {
+            return true;
+        }
+        if (role.equals("error") || role.equals("fatal")) {
+            return false;
+        }
+        return issueNode.getNodeName().getLocalName().equals("successful-report");
     }
 
     int cachedLocationXPathCount() {

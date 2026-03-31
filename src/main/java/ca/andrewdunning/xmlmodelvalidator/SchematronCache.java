@@ -73,6 +73,7 @@ final class SchematronCache {
         Document document = parseDocument(schematronSource.path());
         if (ValidationSupport.SCHEMATRON_NS.equals(document.getDocumentElement().getNamespaceURI())
                 && "schema".equals(document.getDocumentElement().getLocalName())) {
+            ensureSupportedQueryBinding(document, schematronSource.path());
             preparedSchemas.put(normalizedSchemaPath, Optional.of(schematronSource.path()));
             return schematronSource.path();
         }
@@ -241,6 +242,20 @@ final class SchematronCache {
         } catch (IOException | SaxonApiException exception) {
             throw new IllegalStateException("Could not compile SchXslt2 transpiler", exception);
         }
+    }
+
+    private static void ensureSupportedQueryBinding(Document document, Path schemaPath) throws IOException {
+        String queryBinding = document.getDocumentElement().getAttribute("queryBinding");
+        if (queryBinding == null || queryBinding.isBlank()) {
+            return;
+        }
+        String normalized = queryBinding.trim().toLowerCase(Locale.ROOT);
+        if (normalized.equals("xslt") || normalized.equals("xslt2") || normalized.equals("xslt3")) {
+            return;
+        }
+        throw new IOException(
+                "Unsupported Schematron queryBinding '" + queryBinding + "' in " + schemaPath
+                        + ". Supported values are xslt, xslt2, xslt3, or an omitted queryBinding.");
     }
 
     private static Document parseDocument(Path path) throws ParserConfigurationException, IOException {

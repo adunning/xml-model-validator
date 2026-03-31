@@ -160,6 +160,30 @@ final class XmlFileValidatorTest {
   }
 
   @Test
+  void rejectsUnsupportedSchematronQueryBinding() throws Exception {
+    write("rules.sch", """
+        <schema xmlns="http://purl.oclc.org/dsdl/schematron" queryBinding="xpath2">
+          <pattern>
+            <rule context="root">
+              <assert test="false()">unsupported binding</assert>
+            </rule>
+          </pattern>
+        </schema>
+        """);
+    Path xml = write("document.xml", """
+        <?xml version="1.0"?>
+        <?xml-model href="rules.sch" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+        <root/>
+        """);
+
+    ValidationResult result = validator().validate(xml);
+
+    assertFalse(result.ok(), "Expected an unsupported queryBinding to fail validation");
+    assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("Unsupported Schematron queryBinding")));
+  }
+
+
+  @Test
   void validatesEmbeddedSchematronInRelaxNgSchema() throws Exception {
     write("schema.rng", """
         <grammar xmlns="http://relaxng.org/ns/structure/1.0"
