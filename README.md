@@ -88,10 +88,11 @@ name: Validate XML
 on:
   push:
     paths:
-      - "**.xml"
+      - "**/*.xml"
   pull_request:
     paths:
-      - "**.xml"
+      - "**/*.xml"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -121,10 +122,10 @@ on:
     branches:
       - main
     paths:
-      - "**.xml"
+      - "**/*.xml"
   pull_request:
     paths:
-      - "**.xml"
+      - "**/*.xml"
   schedule:
     - cron: "0 3 * * 1"
   workflow_dispatch:
