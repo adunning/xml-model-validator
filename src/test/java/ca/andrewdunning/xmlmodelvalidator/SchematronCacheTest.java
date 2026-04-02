@@ -11,6 +11,7 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 final class SchematronCacheTest {
     @TempDir
@@ -41,6 +42,28 @@ final class SchematronCacheTest {
 
         assertNotNull(first);
         assertEquals(first, second);
+        assertEquals(1, cache.cachedPreparedSchemaCount());
+    }
+
+    @Test
+    void cachesSchemasWithoutEmbeddedSchematronAsMissing() throws Exception {
+        Path schema = write("schema.rng", """
+                <grammar xmlns="http://relaxng.org/ns/structure/1.0">
+                  <start>
+                    <element name="root">
+                      <empty/>
+                    </element>
+                  </start>
+                </grammar>
+                """);
+        SchematronCache cache = new SchematronCache(new Processor(false));
+
+        ResolvedSchemaSource source = new ResolvedSchemaSource(schema, schema.toUri().toString());
+        Path first = cache.prepare(source);
+        Path second = cache.prepare(source);
+
+        assertNull(first);
+        assertNull(second);
         assertEquals(1, cache.cachedPreparedSchemaCount());
     }
 

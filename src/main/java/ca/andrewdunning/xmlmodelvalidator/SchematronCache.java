@@ -36,7 +36,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -44,7 +43,7 @@ import java.util.Set;
  */
 final class SchematronCache {
     private final Processor processor;
-    private final Map<Path, Optional<Path>> preparedSchemas;
+    private final Map<Path, PreparedSchema> preparedSchemas;
     private final Map<Path, XsltExecutable> validators;
     private final XsltExecutable transpiler;
     private final RemoteSchemaCache remoteSchemaCache;
@@ -63,9 +62,9 @@ final class SchematronCache {
      */
     synchronized Path prepare(ResolvedSchemaSource schemaSource) throws IOException, ParserConfigurationException, TransformerException {
         Path normalizedSchemaPath = schemaSource.path().toAbsolutePath().normalize();
-        Optional<Path> cached = preparedSchemas.get(normalizedSchemaPath);
+        PreparedSchema cached = preparedSchemas.get(normalizedSchemaPath);
         if (cached != null) {
-            return cached.orElse(null);
+            return cached.path();
         }
         Files.createDirectories(ValidationSupport.SCHEMATRON_CACHE_DIR);
         ResolvedSchemaSource schematronSource = prepareSchematronSource(
@@ -74,7 +73,7 @@ final class SchematronCache {
         if (ValidationSupport.SCHEMATRON_NS.equals(document.getDocumentElement().getNamespaceURI())
                 && "schema".equals(document.getDocumentElement().getLocalName())) {
             ensureSupportedQueryBinding(document, schematronSource.path());
-            preparedSchemas.put(normalizedSchemaPath, Optional.of(schematronSource.path()));
+            preparedSchemas.put(normalizedSchemaPath, new PreparedSchema.Found(schematronSource.path()));
             return schematronSource.path();
         }
         if (!ValidationSupport.RELAXNG_NS.equals(document.getDocumentElement().getNamespaceURI())
@@ -85,7 +84,7 @@ final class SchematronCache {
         Path output = ValidationSupport.SCHEMATRON_CACHE_DIR.resolve(
                 normalizedSchemaPath.getFileName().toString() + "-" + sha256(normalizedSchemaPath.toString()) + ".sch");
         if (Files.exists(output)) {
-            preparedSchemas.put(normalizedSchemaPath, Optional.of(output));
+            preparedSchemas.put(normalizedSchemaPath, new PreparedSchema.Found(output));
             return output;
         }
 
@@ -96,7 +95,7 @@ final class SchematronCache {
         ExtractionState extractionState = new ExtractionState(extracted, root);
         appendSchematronFragments(schematronSource, extractionState);
         if (!extractionState.foundPattern()) {
-            preparedSchemas.put(normalizedSchemaPath, Optional.empty());
+            preparedSchemas.put(normalizedSchemaPath, PreparedSchema.MISSING);
             return null;
         }
 
@@ -105,7 +104,7 @@ final class SchematronCache {
         try (OutputStream stream = Files.newOutputStream(output)) {
             transformer.transform(new DOMSource(extracted), new StreamResult(stream));
         }
-        preparedSchemas.put(normalizedSchemaPath, Optional.of(output));
+        preparedSchemas.put(normalizedSchemaPath, new PreparedSchema.Found(output));
         return output;
     }
 
@@ -345,6 +344,25 @@ final class SchematronCache {
 
         private boolean foundPattern() {
             return foundPattern;
+        }
+    }
+
+    private sealed interface PreparedSchema permits PreparedSchema.Found, PreparedSchema.Missing {
+        Missing MISSING = new Missing();
+
+        Path path();
+
+        record Found(Path path) implements PreparedSchema {
+        }
+
+        final class Missing implements PreparedSchema {
+            private Missing() {
+            }
+
+            @Override
+            public Path path() {
+                return null;
+            }
         }
     }
 }

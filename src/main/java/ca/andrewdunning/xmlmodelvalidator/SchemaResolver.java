@@ -26,22 +26,12 @@ final class SchemaResolver {
      * Resolves a schema reference against the current document location or configured aliases.
      */
     ResolvedSchemaSource resolveSource(String href, Path baseDirectory) {
-        if (schemaAliases.containsKey(href)) {
-            Path aliased = schemaAliases.get(href);
-            if (!Files.exists(aliased)) {
-                throw new IllegalArgumentException(
-                        "Schema alias '" + href + "' resolves to a missing file: " + aliased);
-            }
-            return new ResolvedSchemaSource(aliased, aliased.toUri().toString());
+        ResolvedSchemaSource aliased = resolveAlias(href);
+        if (aliased != null) {
+            return aliased;
         }
         if (href.startsWith("http://") || href.startsWith("https://")) {
-            try {
-                return new ResolvedSchemaSource(remoteSchemaCache.fetch(href), href);
-            } catch (IOException | InterruptedException exception) {
-                throw new IllegalArgumentException(
-                        "Could not fetch remote schema URL '" + href + "': " + exception.getMessage(),
-                        exception);
-            }
+            return resolveRemote(href);
         }
 
         Path candidate = baseDirectory.resolve(href).normalize().toAbsolutePath();
@@ -62,13 +52,9 @@ final class SchemaResolver {
      * available.
      */
     ResolvedSchemaSource resolveRelativeToSystemId(String href, String baseSystemId, Path fallbackBaseDirectory) {
-        if (schemaAliases.containsKey(href)) {
-            Path aliased = schemaAliases.get(href);
-            if (!Files.exists(aliased)) {
-                throw new IllegalArgumentException(
-                        "Schema alias '" + href + "' resolves to a missing file: " + aliased);
-            }
-            return new ResolvedSchemaSource(aliased, aliased.toUri().toString());
+        ResolvedSchemaSource aliased = resolveAlias(href);
+        if (aliased != null) {
+            return aliased;
         }
 
         if (baseSystemId != null && !baseSystemId.isBlank()) {
@@ -76,16 +62,7 @@ final class SchemaResolver {
             URI resolved = baseUri.resolve(href);
             String resolvedString = resolved.toString();
             if (resolvedString.startsWith("http://") || resolvedString.startsWith("https://")) {
-                try {
-                    return new ResolvedSchemaSource(remoteSchemaCache.fetch(resolvedString), resolvedString);
-                } catch (IOException | InterruptedException exception) {
-                    throw new IllegalArgumentException(
-                            "Could not fetch remote schema URL '"
-                                    + resolvedString
-                                    + "': "
-                                    + exception.getMessage(),
-                            exception);
-                }
+                return resolveRemote(resolvedString);
             }
             if ("file".equalsIgnoreCase(resolved.getScheme())) {
                 Path path = Path.of(resolved).toAbsolutePath().normalize();
@@ -103,5 +80,27 @@ final class SchemaResolver {
         }
 
         return resolveSource(href, fallbackBaseDirectory);
+    }
+
+    private ResolvedSchemaSource resolveAlias(String href) {
+        Path aliased = schemaAliases.get(href);
+        if (aliased == null) {
+            return null;
+        }
+        if (!Files.exists(aliased)) {
+            throw new IllegalArgumentException(
+                    "Schema alias '" + href + "' resolves to a missing file: " + aliased);
+        }
+        return new ResolvedSchemaSource(aliased, aliased.toUri().toString());
+    }
+
+    private ResolvedSchemaSource resolveRemote(String href) {
+        try {
+            return new ResolvedSchemaSource(remoteSchemaCache.fetch(href), href);
+        } catch (IOException | InterruptedException exception) {
+            throw new IllegalArgumentException(
+                    "Could not fetch remote schema URL '" + href + "': " + exception.getMessage(),
+                    exception);
+        }
     }
 }

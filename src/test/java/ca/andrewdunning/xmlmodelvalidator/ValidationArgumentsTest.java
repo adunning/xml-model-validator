@@ -15,6 +15,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 final class ValidationArgumentsTest {
     @TempDir
@@ -244,5 +245,32 @@ final class ValidationArgumentsTest {
         assertEquals(
                 List.of(temporaryDirectory.resolve("b.xml").toAbsolutePath().normalize()),
                 files);
+    }
+
+    @Test
+    void copiesConfiguredCollections() {
+        List<Path> explicitFiles = new java.util.ArrayList<>();
+        explicitFiles.add(temporaryDirectory.resolve("a.xml"));
+        List<String> extensions = new java.util.ArrayList<>();
+        extensions.add("xml");
+
+        ValidationArguments arguments = ValidationArguments.fromCli(
+                null,
+                null,
+                null,
+                explicitFiles,
+                extensions,
+                null,
+                0,
+                false);
+
+        explicitFiles.add(temporaryDirectory.resolve("b.xml"));
+        extensions.add("csl");
+
+        assertAll(
+                () -> assertEquals(List.of(".xml"), arguments.fileExtensions()),
+                () -> assertEquals(1, arguments.explicitFiles().size()),
+                () -> assertThrows(UnsupportedOperationException.class,
+                        () -> arguments.explicitFiles().add(temporaryDirectory.resolve("c.xml"))));
     }
 }

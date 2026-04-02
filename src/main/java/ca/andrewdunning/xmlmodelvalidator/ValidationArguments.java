@@ -7,42 +7,25 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 /**
  * Immutable command-line arguments for the validator application.
  */
-final class ValidationArguments {
+record ValidationArguments(
+        Path directory,
+        Path filesFrom,
+        Path configFile,
+        List<Path> explicitFiles,
+        List<String> fileExtensions,
+        int jobs,
+        boolean failFast) {
     private static final Path STANDARD_INPUT = Path.of("-");
 
-    private final Path directory;
-    private final Path filesFrom;
-    private final Path configFile;
-    private final List<Path> explicitFiles;
-    private final List<String> fileExtensions;
-    private final int jobs;
-    private final boolean failFast;
-    private final boolean directoryMode;
-
-    private ValidationArguments(
-            Path directory,
-            Path filesFrom,
-            Path configFile,
-            List<Path> explicitFiles,
-            List<String> fileExtensions,
-            int jobs,
-            boolean failFast,
-            boolean directoryMode) {
-        this.directory = directory;
-        this.filesFrom = filesFrom;
-        this.configFile = configFile;
-        this.explicitFiles = explicitFiles;
-        this.fileExtensions = fileExtensions;
-        this.jobs = jobs;
-        this.failFast = failFast;
-        this.directoryMode = directoryMode;
+    ValidationArguments {
+        explicitFiles = List.copyOf(explicitFiles);
+        fileExtensions = List.copyOf(fileExtensions);
     }
 
     /**
@@ -70,10 +53,9 @@ final class ValidationArguments {
                 ? ValidationSupport.DEFAULT_CONFIG_FILE
                 : ValidationSupport.resolveAgainstWorkspace(configFile);
 
-        List<Path> files = new ArrayList<>();
-        for (Path rawFile : explicitFiles) {
-            files.add(ValidationSupport.resolveAgainstWorkspace(rawFile));
-        }
+        List<Path> files = explicitFiles.stream()
+                .map(ValidationSupport::resolveAgainstWorkspace)
+                .toList();
         List<String> effectiveFileExtensions = fileExtensions;
         if (effectiveFileExtensions == null || effectiveFileExtensions.isEmpty()) {
             effectiveFileExtensions = inlineRuleExtension == null || inlineRuleExtension.isBlank()
@@ -82,7 +64,6 @@ final class ValidationArguments {
         }
         List<String> normalizedFileExtensions = normalizeFileExtensions(effectiveFileExtensions);
 
-        boolean directoryMode = normalizedDirectory != null;
         return new ValidationArguments(
                 normalizedDirectory,
                 normalizedFilesFrom,
@@ -90,8 +71,7 @@ final class ValidationArguments {
                 files,
                 normalizedFileExtensions,
                 jobs,
-                failFast,
-                directoryMode);
+                failFast);
     }
 
     /**
@@ -165,35 +145,7 @@ final class ValidationArguments {
         return fileExtensions.stream().anyMatch(filename::endsWith);
     }
 
-    Path configFile() {
-        return configFile;
-    }
-
-    Path directory() {
-        return directory;
-    }
-
-    Path filesFrom() {
-        return filesFrom;
-    }
-
-    List<Path> explicitFiles() {
-        return explicitFiles;
-    }
-
-    List<String> fileExtensions() {
-        return fileExtensions;
-    }
-
-    int jobs() {
-        return jobs;
-    }
-
-    boolean failFast() {
-        return failFast;
-    }
-
     boolean directoryMode() {
-        return directoryMode;
+        return directory != null;
     }
 }

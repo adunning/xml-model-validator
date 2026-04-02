@@ -144,21 +144,20 @@ final class XmlFileValidator {
     }
 
     private List<XmlModelEntry> resolveXmlModelEntries(Path file, List<XmlModelEntry> inlineEntries) {
-        Optional<XmlModelRule> matchingRule = findXmlModelRule(file);
-        if (matchingRule.isEmpty()) {
+        XmlModelRule matchingRule = findXmlModelRule(file);
+        if (matchingRule == null) {
             return inlineEntries;
         }
-        XmlModelRule rule = matchingRule.get();
-        if (rule.mode() == XmlModelRuleMode.REPLACE) {
-            return rule.entries();
+        if (matchingRule.mode() == XmlModelRuleMode.REPLACE) {
+            return matchingRule.entries();
         }
         if (inlineEntries.isEmpty()) {
-            return rule.entries();
+            return matchingRule.entries();
         }
         return inlineEntries;
     }
 
-    private Optional<XmlModelRule> findXmlModelRule(Path file) {
+    private XmlModelRule findXmlModelRule(Path file) {
         List<XmlModelRule> bestRules = new ArrayList<>();
         int bestSpecificity = Integer.MIN_VALUE;
         int bestPriority = Integer.MIN_VALUE;
@@ -194,7 +193,7 @@ final class XmlFileValidator {
                                     .map(rule -> "[" + rule.describe() + "]")
                                     .collect(Collectors.joining(", ")));
         }
-        return bestRules.isEmpty() ? Optional.empty() : Optional.of(bestRules.getFirst());
+        return bestRules.isEmpty() ? null : bestRules.getFirst();
     }
 
     private List<ValidationIssue> validateSchematron(ResolvedSchemaSource schemaSource, Path xmlFile, String phase) throws Exception {
@@ -308,21 +307,23 @@ final class XmlFileValidator {
 
     private static boolean isWarning(XdmNode issueNode) {
         String severity = attribute(issueNode, "severity").toLowerCase(Locale.ROOT);
-        if (severity.equals("info") || severity.equals("warning")) {
-            return true;
-        }
-        if (severity.equals("error") || severity.equals("fatal")) {
-            return false;
+        switch (severity) {
+            case "info", "warning" -> {
+                return true;
+            }
+            case "error", "fatal" -> {
+                return false;
+            }
+            default -> {
+            }
         }
 
         String role = attribute(issueNode, "role").toLowerCase(Locale.ROOT);
-        if (role.equals("info") || role.equals("warn") || role.equals("warning") || role.equals("nonfatal")) {
-            return true;
-        }
-        if (role.equals("error") || role.equals("fatal")) {
-            return false;
-        }
-        return issueNode.getNodeName().getLocalName().equals("successful-report");
+        return switch (role) {
+            case "info", "warn", "warning", "nonfatal" -> true;
+            case "error", "fatal" -> false;
+            default -> issueNode.getNodeName().getLocalName().equals("successful-report");
+        };
     }
 
     int cachedLocationXPathCount() {
