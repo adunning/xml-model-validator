@@ -48,7 +48,7 @@ final class JingValidator {
         Path normalizedSchema = schema.path().toAbsolutePath().normalize();
         CollectingErrorHandler errorHandler = new CollectingErrorHandler(xmlFile);
         Schema compiledSchema = loadSchema(new ResolvedSchemaSource(normalizedSchema, schema.systemId()), errorHandler);
-        Validator validator = compiledSchema.createValidator(instanceProperties(errorHandler));
+        Validator validator = compiledSchema.createValidator(propertiesWithErrorHandler(errorHandler));
         XMLReader reader = XML_READERS.reader();
         reader.setContentHandler(validator.getContentHandler());
         reader.setDTDHandler(validator.getDTDHandler());
@@ -70,9 +70,8 @@ final class JingValidator {
         Schema loaded;
         try (InputStream stream = Files.newInputStream(schemaSource.path())) {
             InputSource source = new InputSource(schemaSource.systemId());
-            source.setSystemId(schemaSource.systemId());
             source.setByteStream(stream);
-            loaded = schemaReader.createSchema(source, schemaProperties(errorHandler));
+            loaded = schemaReader.createSchema(source, propertiesWithErrorHandler(errorHandler));
         }
         schemaCache.put(schemaPath, loaded);
         return loaded;
@@ -80,22 +79,14 @@ final class JingValidator {
 
     private static SchemaReader schemaReaderFor(Path schemaPath) {
         String filename = schemaPath.getFileName().toString().toLowerCase(java.util.Locale.ROOT);
-        if (filename.endsWith(".rnc")) {
-            return CompactSchemaReader.getInstance();
-        }
-        if (filename.endsWith(".rng")) {
-            return SAXSchemaReader.getInstance();
-        }
-        return new AutoSchemaReader();
+        return switch (filename) {
+            case String ignored when filename.endsWith(".rnc") -> CompactSchemaReader.getInstance();
+            case String ignored when filename.endsWith(".rng") -> SAXSchemaReader.getInstance();
+            default -> new AutoSchemaReader();
+        };
     }
 
-    private static com.thaiopensource.util.PropertyMap schemaProperties(ErrorHandler errorHandler) {
-        PropertyMapBuilder properties = new PropertyMapBuilder();
-        properties.put(ValidateProperty.ERROR_HANDLER, errorHandler);
-        return properties.toPropertyMap();
-    }
-
-    private static com.thaiopensource.util.PropertyMap instanceProperties(ErrorHandler errorHandler) {
+    private static com.thaiopensource.util.PropertyMap propertiesWithErrorHandler(ErrorHandler errorHandler) {
         PropertyMapBuilder properties = new PropertyMapBuilder();
         properties.put(ValidateProperty.ERROR_HANDLER, errorHandler);
         return properties.toPropertyMap();

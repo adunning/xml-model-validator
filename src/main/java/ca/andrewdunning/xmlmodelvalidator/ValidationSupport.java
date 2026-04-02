@@ -3,6 +3,8 @@ package ca.andrewdunning.xmlmodelvalidator;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Shared constants and utility methods for workspace, cache, and GitHub Actions integration.
@@ -49,6 +51,22 @@ final class ValidationSupport {
 
     static XmlModelEntry createConfiguredXmlModelEntry(String href, String schemaTypeNamespace, String type, String phase) {
         return new XmlModelEntry(normalizeConfiguredHref(href), schemaTypeNamespace, type, phase);
+    }
+
+    static List<String> extractSchemaLocations(String noNamespaceSchemaLocation, String schemaLocation) {
+        List<String> schemaLocations = new ArrayList<>();
+        if (noNamespaceSchemaLocation != null && !noNamespaceSchemaLocation.isBlank()) {
+            schemaLocations.add(noNamespaceSchemaLocation.trim());
+        }
+        if (schemaLocation == null || schemaLocation.isBlank()) {
+            return List.copyOf(schemaLocations);
+        }
+
+        String[] parts = schemaLocation.trim().split("\\s+");
+        for (int index = 1; index < parts.length; index += 2) {
+            schemaLocations.add(parts[index]);
+        }
+        return List.copyOf(schemaLocations);
     }
 
     private static String normalizeConfiguredHref(String href) {

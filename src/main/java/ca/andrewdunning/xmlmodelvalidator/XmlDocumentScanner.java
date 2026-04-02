@@ -95,19 +95,9 @@ final class XmlDocumentScanner {
         }
 
         private void collectSchemaLocations(Attributes attributes) {
-            String noNamespaceSchemaLocation = attributes.getValue(XSI_NS, "noNamespaceSchemaLocation");
-            if (noNamespaceSchemaLocation != null && !noNamespaceSchemaLocation.isBlank()) {
-                schemaLocations.add(noNamespaceSchemaLocation.trim());
-            }
-
-            String schemaLocation = attributes.getValue(XSI_NS, "schemaLocation");
-            if (schemaLocation == null || schemaLocation.isBlank()) {
-                return;
-            }
-            String[] parts = schemaLocation.trim().split("\\s+");
-            for (int index = 1; index < parts.length; index += 2) {
-                schemaLocations.add(parts[index]);
-            }
+            schemaLocations.addAll(ValidationSupport.extractSchemaLocations(
+                    attributes.getValue(XSI_NS, "noNamespaceSchemaLocation"),
+                    attributes.getValue(XSI_NS, "schemaLocation")));
         }
 
         private XmlDocumentScan result() {

@@ -142,6 +142,22 @@ final class ValidationSupportTest {
         assertTrue(exception.getMessage().contains("role"));
     }
 
+    @Test
+    void extractsSchemaLocationsFromBothHintForms() {
+        assertEquals(
+                java.util.List.of("fallback.xsd", "one.xsd", "two.xsd"),
+                ValidationSupport.extractSchemaLocations(
+                        "fallback.xsd",
+                        "urn:one one.xsd urn:two two.xsd"));
+    }
+
+    @Test
+    void ignoresOddNamespaceTokenWhenExtractingSchemaLocations() {
+        assertEquals(
+                java.util.List.of("one.xsd"),
+                ValidationSupport.extractSchemaLocations(null, "urn:one one.xsd urn:two"));
+    }
+
     private Path write(String relativePath, String content) throws IOException {
         Path file = temporaryDirectory.resolve(relativePath);
         Files.createDirectories(file.getParent());

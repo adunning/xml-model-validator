@@ -7,9 +7,6 @@ import org.xml.sax.SAXParseException;
 import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.DefaultHandler;
 
-import javax.xml.XMLConstants;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.parsers.SAXParserFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -28,6 +25,7 @@ import java.util.regex.Pattern;
 final class XmlModelParser {
     private static final Pattern XML_MODEL_ATTRIBUTE_PATTERN = Pattern.compile("(\\w+)\\s*=\\s*([\"'])(.*?)\\2");
     private static final Pattern XML_MODEL_WRAPPER_PATTERN = Pattern.compile("^<\\?xml-model\\s+(.*?)\\?>$", Pattern.DOTALL);
+    private static final SecureXmlReaderPool XML_READERS = new SecureXmlReaderPool();
 
     /**
      * Returns xml-model declarations in document order.
@@ -35,7 +33,8 @@ final class XmlModelParser {
     List<XmlModelEntry> parse(Path file) throws IOException {
         List<XmlModelEntry> entries = new ArrayList<>();
         try (InputStream inputStream = Files.newInputStream(file)) {
-            XMLReader reader = createReader(entries);
+            XMLReader reader = XML_READERS.reader();
+            reader.setContentHandler(new XmlModelHandler(entries));
             InputSource inputSource = new InputSource(inputStream);
             inputSource.setSystemId(file.toUri().toString());
             reader.parse(inputSource);
@@ -51,7 +50,7 @@ final class XmlModelParser {
                             + ", column "
                             + exception.getColumnNumber(),
                     exception);
-        } catch (ParserConfigurationException | SAXException exception) {
+        } catch (SAXException exception) {
             throw new IOException("Could not parse xml-model processing instructions from " + file, exception);
         }
     }
@@ -90,27 +89,6 @@ final class XmlModelParser {
             attributes.put(attributeMatcher.group(1), attributeMatcher.group(3));
         }
         return attributes;
-    }
-
-    private XMLReader createReader(List<XmlModelEntry> entries) throws ParserConfigurationException, SAXException {
-        SAXParserFactory factory = SAXParserFactory.newInstance();
-        factory.setNamespaceAware(true);
-        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-        setFeature(factory, "http://xml.org/sax/features/external-general-entities", false);
-        setFeature(factory, "http://xml.org/sax/features/external-parameter-entities", false);
-        setFeature(factory, "http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-
-        XMLReader reader = factory.newSAXParser().getXMLReader();
-        reader.setContentHandler(new XmlModelHandler(entries));
-        return reader;
-    }
-
-    private void setFeature(SAXParserFactory factory, String feature, boolean value)
-            throws ParserConfigurationException, SAXException {
-        try {
-            factory.setFeature(feature, value);
-        } catch (ParserConfigurationException | SAXException ignored) {
-        }
     }
 
     private static final class XmlModelHandler extends DefaultHandler {
