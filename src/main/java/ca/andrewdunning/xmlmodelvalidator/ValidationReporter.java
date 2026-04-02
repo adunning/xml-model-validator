@@ -100,18 +100,13 @@ final class ValidationReporter {
     }
 
     private static Summary summarize(List<ValidationResult> results, Duration elapsed) {
-        int failedFiles = 0;
-        int warningCount = 0;
-        for (ValidationResult result : results) {
-            if (!result.ok()) {
-                failedFiles += 1;
-            }
-            for (ValidationIssue issue : result.issues()) {
-                if (issue.warning()) {
-                    warningCount += 1;
-                }
-            }
-        }
+        int failedFiles = (int) results.stream()
+                .filter(result -> !result.ok())
+                .count();
+        int warningCount = (int) results.stream()
+                .flatMap(result -> result.issues().stream())
+                .filter(ValidationIssue::warning)
+                .count();
         return new Summary(results.size(), failedFiles, warningCount, elapsed);
     }
 
@@ -212,78 +207,13 @@ final class ValidationReporter {
         }
 
         StringBuilder markdown = new StringBuilder();
-        markdown.append("## XML Validation\n\n");
-        markdown.append(summary.failedFiles() == 0
-                ? "Validation completed successfully.\n\n"
-                : "Validation found errors.\n\n");
-        markdown.append("| Checked | Failed | Warnings | Duration |\n");
-        markdown.append("| --- | --- | --- | --- |\n");
-        markdown.append("| ")
-                .append(summary.filesChecked())
-                .append(" | ")
-                .append(summary.failedFiles())
-                .append(" | ")
-                .append(summary.warningCount())
-                .append(" | ")
-                .append(String.format("%.2fs", summary.elapsed().toMillis() / 1000.0))
-                .append(" |\n\n");
-
-        if (selectionContext != null || configContext != null || fileExtensionsContext != null) {
-            markdown.append("### Run Context\n\n");
-            markdown.append("| Setting | Value |\n");
-            markdown.append("| --- | --- |\n");
-            if (selectionContext != null) {
-                markdown.append("| Selection | ")
-                        .append(escapeMarkdown(describeSelection(selectionContext)))
-                        .append(" |\n");
-            }
-            if (configContext != null) {
-                markdown.append("| Config | `")
-                        .append(escapeMarkdown(configContext))
-                        .append("` |\n");
-            }
-            if (fileExtensionsContext != null) {
-                markdown.append("| File extensions | `")
-                        .append(escapeMarkdown(fileExtensionsContext))
-                        .append("` |\n");
-            }
-            markdown.append("\n");
-        }
-
-        if (jsonReportPath != null && !jsonReportPath.isBlank()) {
-            markdown.append("JSON report: `")
-                    .append(escapeMarkdown(jsonReportPath))
-                    .append("`\n\n");
-        }
-
         List<ValidationIssue> issues = results.stream()
                 .flatMap(result -> result.issues().stream())
                 .toList();
-        if (issues.isEmpty()) {
-            markdown.append("All checked files validated successfully.\n\n");
-        } else {
-            markdown.append("### Issues\n\n");
-            markdown.append("| Severity | File | Location | Message |\n");
-            markdown.append("| --- | --- | --- | --- |\n");
-            issues.stream()
-                    .limit(STEP_SUMMARY_ISSUE_LIMIT)
-                    .forEach(issue -> markdown.append("| ")
-                            .append(issue.warning() ? "Warning" : "Error")
-                            .append(" | `")
-                            .append(escapeMarkdown(ValidationSupport.relativize(issue.file())))
-                            .append("` | ")
-                            .append(formatIssueLocation(issue))
-                            .append(" | ")
-                            .append(escapeMarkdown(issue.message()))
-                            .append(" |\n"));
-            if (issues.size() > STEP_SUMMARY_ISSUE_LIMIT) {
-                markdown.append("\n")
-                        .append(issues.size() - STEP_SUMMARY_ISSUE_LIMIT)
-                        .append(" additional issue(s) omitted.\n\n");
-            } else {
-                markdown.append("\n");
-            }
-        }
+        appendSummaryHeader(markdown, summary);
+        appendRunContext(markdown);
+        appendJsonReportReference(markdown);
+        appendIssues(markdown, issues);
 
         try {
             Files.writeString(
@@ -298,6 +228,94 @@ final class ValidationReporter {
                     githubStepSummaryPath,
                     exception.getMessage());
         }
+    }
+
+    private static void appendSummaryHeader(StringBuilder markdown, Summary summary) {
+        markdown.append("## XML Validation\n\n");
+        markdown.append(summary.failedFiles() == 0
+                ? "Validation completed successfully.\n\n"
+                : "Validation found errors.\n\n");
+        appendTable(
+                markdown,
+                List.of("Checked", "Failed", "Warnings", "Duration"),
+                List.of(List.of(
+                        Integer.toString(summary.filesChecked()),
+                        Integer.toString(summary.failedFiles()),
+                        Integer.toString(summary.warningCount()),
+                        formatElapsed(summary.elapsed()))));
+        markdown.append('\n');
+    }
+
+    private void appendRunContext(StringBuilder markdown) {
+        List<List<String>> rows = new ArrayList<>();
+        if (selectionContext != null) {
+            rows.add(List.of("Selection", escapeMarkdown(describeSelection(selectionContext))));
+        }
+        if (configContext != null) {
+            rows.add(List.of("Config", '`' + escapeMarkdown(configContext) + '`'));
+        }
+        if (fileExtensionsContext != null) {
+            rows.add(List.of("File extensions", '`' + escapeMarkdown(fileExtensionsContext) + '`'));
+        }
+        if (rows.isEmpty()) {
+            return;
+        }
+
+        markdown.append("### Run Context\n\n");
+        appendTable(markdown, List.of("Setting", "Value"), rows);
+        markdown.append('\n');
+    }
+
+    private void appendJsonReportReference(StringBuilder markdown) {
+        if (jsonReportPath == null || jsonReportPath.isBlank()) {
+            return;
+        }
+        markdown.append("JSON report: `")
+                .append(escapeMarkdown(jsonReportPath))
+                .append("`\n\n");
+    }
+
+    private static void appendIssues(StringBuilder markdown, List<ValidationIssue> issues) {
+        if (issues.isEmpty()) {
+            markdown.append("All checked files validated successfully.\n\n");
+            return;
+        }
+
+        markdown.append("### Issues\n\n");
+        appendTable(
+                markdown,
+                List.of("Severity", "File", "Location", "Message"),
+                issues.stream()
+                        .limit(STEP_SUMMARY_ISSUE_LIMIT)
+                        .map(issue -> List.of(
+                                issue.warning() ? "Warning" : "Error",
+                                '`' + escapeMarkdown(ValidationSupport.relativize(issue.file())) + '`',
+                                formatIssueLocation(issue),
+                                escapeMarkdown(issue.message())))
+                        .toList());
+        markdown.append('\n');
+        int omittedIssueCount = issues.size() - STEP_SUMMARY_ISSUE_LIMIT;
+        if (omittedIssueCount > 0) {
+            markdown.append(omittedIssueCount)
+                    .append(" additional issue(s) omitted.\n\n");
+        }
+    }
+
+    private static void appendTable(StringBuilder markdown, List<String> headers, List<List<String>> rows) {
+        markdown.append("| ")
+                .append(String.join(" | ", headers))
+                .append(" |\n| ");
+        markdown.append(headers.stream().map(ignored -> "---").reduce((left, right) -> left + " | " + right).orElse("---"));
+        markdown.append(" |\n");
+        for (List<String> row : rows) {
+            markdown.append("| ")
+                    .append(String.join(" | ", row))
+                    .append(" |\n");
+        }
+    }
+
+    private static String formatElapsed(Duration elapsed) {
+        return String.format("%.2fs", elapsed.toMillis() / 1000.0);
     }
 
     private static String formatIssueLocation(ValidationIssue issue) {
