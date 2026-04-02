@@ -15,7 +15,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Future;
-import java.util.concurrent.Semaphore;
 
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -336,13 +335,13 @@ public final class XmlValidationApplication {
      */
     private static final class ValidationExecutor implements AutoCloseable {
         private final ExecutorService executorService;
-        private final Semaphore permits;
         private final XmlFileValidator validator;
+        private final int workers;
 
         private ValidationExecutor(XmlFileValidator validator, int workers) {
-            this.executorService = Executors.newVirtualThreadPerTaskExecutor();
-            this.permits = new Semaphore(workers, true);
+            this.executorService = Executors.newFixedThreadPool(workers, Thread.ofVirtual().factory());
             this.validator = validator;
+            this.workers = workers;
         }
 
         private List<ValidationResult> validateAll(List<Path> files) throws Exception {
@@ -359,7 +358,7 @@ public final class XmlValidationApplication {
         }
 
         private List<ValidationResult> validateUntilFailure(List<Path> files) throws Exception {
-            if (permits.availablePermits() == 1) {
+            if (workers == 1) {
                 return validateUntilFailureSerially(files);
             }
 
@@ -368,7 +367,7 @@ public final class XmlValidationApplication {
             CompletionService<ValidationResult> completionService = new ExecutorCompletionService<>(executorService);
             int submitted = 0;
             int completed = 0;
-            int maxInFlight = permits.availablePermits();
+            int maxInFlight = Math.min(workers, files.size());
 
             while (submitted < files.size() && submitted < maxInFlight) {
                 int fileIndex = submitted;
@@ -434,12 +433,7 @@ public final class XmlValidationApplication {
         }
 
         private ValidationResult validateFile(Path file) throws InterruptedException {
-            permits.acquire();
-            try {
-                return validator.validate(file);
-            } finally {
-                permits.release();
-            }
+            return validator.validate(file);
         }
 
         @Override

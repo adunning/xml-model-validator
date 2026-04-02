@@ -90,6 +90,40 @@ final class XmlValidationApplicationTest {
     }
 
     @Test
+    void validateFilesPreservesSortedOrderWithMultipleWorkers() throws Exception {
+        writeRelaxNgSchema("schema.rng");
+        Path zFile = writeXml("z-valid.xml", """
+                <?xml version="1.0"?>
+                <?xml-model href="schema.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+                <root/>
+                """);
+        Path aFile = writeXml("a-valid.xml", """
+                <?xml version="1.0"?>
+                <?xml-model href="schema.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+                <root/>
+                """);
+
+        ValidationArguments arguments = ValidationArguments.fromCli(
+                null,
+                null,
+                null,
+                List.of(zFile, aFile),
+                List.of(),
+                null,
+                2,
+                false);
+        XmlValidationApplication application = createApplication(Map.of(), List.of(), false, null, System.out, System.err);
+
+        List<ValidationResult> results = invokeValidateFiles(application, arguments, arguments.resolveFiles(), 2);
+
+        assertEquals(
+                List.of(
+                        aFile.toAbsolutePath().normalize(),
+                        zFile.toAbsolutePath().normalize()),
+                results.stream().map(ValidationResult::file).toList());
+    }
+
+    @Test
     void remainsQuietOnSuccessByDefault() throws Exception {
         writeRelaxNgSchema("schema.rng");
         Path valid = writeXml("single.xml", """
