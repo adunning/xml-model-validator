@@ -12,6 +12,7 @@ SUMMARY_JSON_FILE="${RUNNER_TEMP}/xml-model-validator-summary.json"
 JSON_REPORT_DESTINATION=""
 
 mkdir -p \
+  "${RUNNER_TEMP}" \
   "${XML_MODEL_VALIDATOR_CACHE_HOME}/jar" \
   "${XML_MODEL_VALIDATOR_CACHE_HOME}/schema-downloads" \
   "${XML_MODEL_VALIDATOR_CACHE_HOME}/schematron"
