@@ -4,11 +4,6 @@
 
 Security updates are provided for the latest release only.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 2.1.x   | :white_check_mark: |
-| < 2.1   | :x:                |
-
 ## Reporting a Vulnerability
 
 Please report security vulnerabilities through [GitHub's private vulnerability reporting](https://github.com/adunning/xml-model-validator/security/advisories/new) rather than through a public issue.
