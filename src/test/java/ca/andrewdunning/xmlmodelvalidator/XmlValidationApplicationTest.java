@@ -44,7 +44,8 @@ final class XmlValidationApplicationTest {
                                 null,
                                 1,
                                 false);
-                XmlValidationApplication application = createApplication(Map.of(), List.of(), false, false, null,
+                XmlValidationApplication application = createApplication(Map.of(), List.of(), false,
+                                SchematronSeverityLevel.INFO, false, null,
                                 System.out, System.err);
 
                 int exitCode = invokeRun(application, arguments, arguments.resolveFiles());
@@ -80,7 +81,8 @@ final class XmlValidationApplicationTest {
                                 null,
                                 1,
                                 true);
-                XmlValidationApplication application = createApplication(Map.of(), List.of(), false, false, null,
+                XmlValidationApplication application = createApplication(Map.of(), List.of(), false,
+                                SchematronSeverityLevel.INFO, false, null,
                                 System.out, System.err);
                 List<Path> files = arguments.resolveFiles();
 
@@ -114,7 +116,8 @@ final class XmlValidationApplicationTest {
                                 null,
                                 2,
                                 false);
-                XmlValidationApplication application = createApplication(Map.of(), List.of(), false, false, null,
+                XmlValidationApplication application = createApplication(Map.of(), List.of(), false,
+                                SchematronSeverityLevel.INFO, false, null,
                                 System.out, System.err);
 
                 List<ValidationResult> results = invokeValidateFiles(application, arguments, arguments.resolveFiles(),
@@ -145,7 +148,8 @@ final class XmlValidationApplicationTest {
                                 null,
                                 2,
                                 false);
-                XmlValidationApplication application = createApplication(Map.of(), List.of(), false, false, null,
+                XmlValidationApplication application = createApplication(Map.of(), List.of(), false,
+                                SchematronSeverityLevel.INFO, false, null,
                                 System.out, System.err);
                 ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
                 PrintStream originalErr = System.err;
@@ -212,6 +216,7 @@ final class XmlValidationApplicationTest {
                 assertTrue(stdout.contains("Config file:"));
                 assertTrue(stdout.contains("File extensions: .xml"));
                 assertTrue(stdout.contains("Check Schematron schema: false"));
+                assertTrue(stdout.contains("Schematron severity threshold: info"));
                 assertTrue(stdout.contains("Rules (0):"));
                 assertTrue(stdout.contains("Files (1):"));
                 assertTrue(stdout.contains("planned.xml"));
@@ -235,6 +240,7 @@ final class XmlValidationApplicationTest {
                 assertTrue(stdout.contains("\"inputSource\":\"directory:"));
                 assertTrue(stdout.contains("\"fileExtensions\":[\".xml\"]"));
                 assertTrue(stdout.contains("\"checkSchematronSchema\":false"));
+                assertTrue(stdout.contains("\"schematronSeverityThreshold\":\"info\""));
                 assertTrue(stdout.contains("\"fileCount\":1"));
                 assertTrue(stdout.contains("planned.xml"));
                 assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).isBlank());
@@ -323,10 +329,47 @@ final class XmlValidationApplicationTest {
                 assertTrue(stdout.contains("Usage: xml-model-validator"));
                 assertTrue(stdout.contains("Examples:"));
                 assertTrue(stdout.contains("--check-schematron-schema"));
+                assertTrue(stdout.contains("--schematron-severity-threshold"));
                 assertTrue(stdout.contains("--plan"));
                 assertTrue(stdout.contains("--files-from -"));
                 assertTrue(stdout.contains("Exactly one input source is required"));
                 assertTrue(stderrBuffer.toString(StandardCharsets.UTF_8).isBlank());
+        }
+
+        @Test
+        void executeAcceptsSchematronSeverityThreshold() throws Exception {
+                write("rules.sch",
+                                """
+                                                <schema xmlns="http://purl.oclc.org/dsdl/schematron" queryBinding="xslt2">
+                                                        <pattern>
+                                                                <rule context="root">
+                                                                        <assert test="false()" severity="warning">warning-level assertion</assert>
+                                                                        <assert test="false()" severity="error">error-level assertion</assert>
+                                                                </rule>
+                                                        </pattern>
+                                                </schema>
+                                                """);
+                write("document.xml", """
+                                <?xml version="1.0"?>
+                                <?xml-model href="rules.sch" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+                                <root/>
+                                """);
+                ByteArrayOutputStream stdoutBuffer = new ByteArrayOutputStream();
+                ByteArrayOutputStream stderrBuffer = new ByteArrayOutputStream();
+
+                int exitCode = XmlValidationApplication.execute(
+                                new String[] {
+                                                "--format", "json",
+                                                "--schematron-severity-threshold", "error",
+                                                temporaryDirectory.resolve("document.xml").toString()
+                                },
+                                new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
+                                new PrintStream(stderrBuffer, true, StandardCharsets.UTF_8));
+
+                assertEquals(1, exitCode);
+                String stdout = stdoutBuffer.toString(StandardCharsets.UTF_8);
+                assertTrue(stdout.contains("error-level assertion"));
+                assertFalse(stdout.contains("warning-level assertion"));
         }
 
         @Test
@@ -805,15 +848,18 @@ final class XmlValidationApplicationTest {
                         Map<String, Path> schemaAliases,
                         List<XmlModelRule> xmlModelRules,
                         boolean checkSchematronSchema,
+                        SchematronSeverityLevel schematronSeverityThreshold,
                         boolean verbose,
                         OutputFormat format,
                         PrintStream output,
                         PrintStream error) throws Exception {
                 Constructor<XmlValidationApplication> constructor = XmlValidationApplication.class
-                                .getDeclaredConstructor(Map.class, List.class, boolean.class, boolean.class,
+                                .getDeclaredConstructor(Map.class, List.class, boolean.class,
+                                                SchematronSeverityLevel.class, boolean.class,
                                                 OutputFormat.class, PrintStream.class, PrintStream.class);
                 constructor.setAccessible(true);
-                return constructor.newInstance(schemaAliases, xmlModelRules, checkSchematronSchema, verbose, format,
+                return constructor.newInstance(schemaAliases, xmlModelRules, checkSchematronSchema,
+                                schematronSeverityThreshold, verbose, format,
                                 output, error);
         }
 

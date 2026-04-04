@@ -365,6 +365,15 @@ if [ "${XML_MODEL_VALIDATOR_INPUT_FAIL_FAST:-false}" = "true" ]; then
   set -- "$@" --fail-fast
 fi
 
+if [ "${XML_MODEL_VALIDATOR_INPUT_CHECK_SCHEMATRON_SCHEMA:-false}" = "true" ]; then
+  set -- "$@" --check-schematron-schema
+fi
+
+if [ -n "${XML_MODEL_VALIDATOR_INPUT_SCHEMATRON_SEVERITY_THRESHOLD:-}" ] && \
+   [ "${XML_MODEL_VALIDATOR_INPUT_SCHEMATRON_SEVERITY_THRESHOLD}" != "INFO" ]; then
+  set -- "$@" --schematron-severity-threshold "${XML_MODEL_VALIDATOR_INPUT_SCHEMATRON_SEVERITY_THRESHOLD}"
+fi
+
 set -- "$@" -j "${XML_MODEL_VALIDATOR_INPUT_JOBS:-0}"
 
 selection_count="$(count_selection_inputs)"

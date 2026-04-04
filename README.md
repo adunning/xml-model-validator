@@ -328,6 +328,8 @@ Validate explicit files and stop on the first failure:
   inline `xml-model` rule; remote schema URLs are supported and are expected to
   be the most common case
 - `fail_fast`: stop after the first failing file
+- `check_schematron_schema`: run SchXslt assembled-schema checks before validating documents that use Schematron; disabled by default
+- `schematron_severity_threshold`: skip Schematron assertions with a severity lower than the threshold; one of `INFO`, `WARNING`, `ERROR`, `FATAL`; defaults to `INFO` (report all assertions)
 - `json_report_path`: optional path, relative to the repository root or absolute, where the Action should save a JSON validation report
 
 If you do not provide `files`, `files_from`, `directory`, or `changed_files_only`,
@@ -575,6 +577,14 @@ Output formats:
 - `--format json` writes a machine-readable report to standard output
 - if `--format` is omitted, the CLI defaults to `text` locally and `github`
   inside GitHub Actions
+
+Schematron options:
+
+- `--check-schematron-schema` enables SchXslt assembled-schema checks before
+  validating documents that use Schematron; disabled by default
+- `--schematron-severity-threshold LEVEL` skips Schematron assertions with a
+  severity lower than the threshold; one of `INFO`, `WARNING`, `ERROR`, `FATAL`;
+  defaults to `INFO` (report all assertions)
 
 Inspection mode:
 

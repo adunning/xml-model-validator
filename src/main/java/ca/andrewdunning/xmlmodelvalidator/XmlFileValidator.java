@@ -44,17 +44,25 @@ final class XmlFileValidator {
     private final List<XmlModelRule> xmlModelRules;
 
     XmlFileValidator(Map<String, Path> schemaAliases) {
-        this(schemaAliases, List.of(), false);
+        this(schemaAliases, List.of(), false, SchematronSeverityLevel.INFO);
     }
 
     XmlFileValidator(Map<String, Path> schemaAliases, List<XmlModelRule> xmlModelRules) {
-        this(schemaAliases, xmlModelRules, false);
+        this(schemaAliases, xmlModelRules, false, SchematronSeverityLevel.INFO);
     }
 
     XmlFileValidator(
             Map<String, Path> schemaAliases,
             List<XmlModelRule> xmlModelRules,
             boolean checkSchematronSchema) {
+        this(schemaAliases, xmlModelRules, checkSchematronSchema, SchematronSeverityLevel.INFO);
+    }
+
+    XmlFileValidator(
+            Map<String, Path> schemaAliases,
+            List<XmlModelRule> xmlModelRules,
+            boolean checkSchematronSchema,
+            SchematronSeverityLevel severityThreshold) {
         this.processor = new Processor(false);
         this.svrlXPathCompiler = processor.newXPathCompiler();
         this.svrlXPathCompiler.declareNamespace("svrl", ValidationSupport.SVRL_NS);
@@ -68,7 +76,7 @@ final class XmlFileValidator {
         }
         this.locationXPathCache = new ConcurrentHashMap<>();
         this.xmlDocumentScanner = new XmlDocumentScanner();
-        this.schematronCache = new SchematronCache(processor, checkSchematronSchema);
+        this.schematronCache = new SchematronCache(processor, checkSchematronSchema, severityThreshold);
         this.jingValidator = new JingValidator();
         this.schemaResolver = new SchemaResolver(schemaAliases, new RemoteSchemaCache());
         this.xsdValidator = new XsdValidator(schemaResolver);

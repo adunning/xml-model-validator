@@ -101,6 +101,33 @@ final class XmlFileValidatorTest {
   }
 
   @Test
+  void appliesSchematronSeverityThreshold() throws Exception {
+    write("rules.sch", """
+        <schema xmlns="http://purl.oclc.org/dsdl/schematron" queryBinding="xslt2">
+          <pattern>
+            <rule context="root">
+              <assert test="false()" severity="warning">warning-level assertion</assert>
+              <assert test="false()" severity="error">error-level assertion</assert>
+            </rule>
+          </pattern>
+        </schema>
+        """);
+    Path xml = write("document.xml", """
+        <?xml version="1.0"?>
+        <?xml-model href="rules.sch" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+        <root/>
+        """);
+
+    ValidationResult result = validator(false, SchematronSeverityLevel.ERROR).validate(xml);
+
+    assertFalse(result.ok(), "Expected error-level assertions to remain active");
+    assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("error-level assertion")),
+        "Expected error-severity assertion to be reported");
+    assertFalse(result.issues().stream().anyMatch(issue -> issue.message().contains("warning-level assertion")),
+        "Expected warning-severity assertion to be skipped by the threshold");
+  }
+
+  @Test
   void rejectsInvalidSchematronSchemaWhenStrictChecksAreEnabled() throws Exception {
     write("rules.sch", """
         <schema xmlns="http://purl.oclc.org/dsdl/schematron" queryBinding="xslt2">
@@ -591,19 +618,26 @@ final class XmlFileValidatorTest {
   }
 
   private XmlFileValidator validator() {
-    return validator(List.of(), false);
+    return validator(List.of(), false, SchematronSeverityLevel.INFO);
   }
 
   private XmlFileValidator validator(boolean checkSchematronSchema) {
-    return validator(List.of(), checkSchematronSchema);
+    return validator(List.of(), checkSchematronSchema, SchematronSeverityLevel.INFO);
+  }
+
+  private XmlFileValidator validator(boolean checkSchematronSchema, SchematronSeverityLevel severityThreshold) {
+    return validator(List.of(), checkSchematronSchema, severityThreshold);
   }
 
   private XmlFileValidator validator(List<XmlModelRule> xmlModelRules) {
-    return validator(xmlModelRules, false);
+    return validator(xmlModelRules, false, SchematronSeverityLevel.INFO);
   }
 
-  private XmlFileValidator validator(List<XmlModelRule> xmlModelRules, boolean checkSchematronSchema) {
-    return new XmlFileValidator(Map.of(), xmlModelRules, checkSchematronSchema);
+  private XmlFileValidator validator(
+      List<XmlModelRule> xmlModelRules,
+      boolean checkSchematronSchema,
+      SchematronSeverityLevel severityThreshold) {
+    return new XmlFileValidator(Map.of(), xmlModelRules, checkSchematronSchema, severityThreshold);
   }
 
   private Path write(String relativePath, String content) throws IOException {

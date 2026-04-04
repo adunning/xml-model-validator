@@ -37,6 +37,7 @@ public final class XmlValidationApplication {
             Map<String, Path> schemaAliases,
             List<XmlModelRule> xmlModelRules,
             boolean checkSchematronSchema,
+            SchematronSeverityLevel schematronSeverityThreshold,
             boolean verbose,
             OutputFormat format,
             PrintStream output,
@@ -46,7 +47,11 @@ public final class XmlValidationApplication {
                 ? OutputFormat.defaultForEnvironment(githubActions)
                 : format;
         this.reporter = new ValidationReporter(effectiveFormat, verbose, output, error);
-        this.validator = new XmlFileValidator(schemaAliases, xmlModelRules, checkSchematronSchema);
+        this.validator = new XmlFileValidator(
+                schemaAliases,
+                xmlModelRules,
+                checkSchematronSchema,
+                schematronSeverityThreshold);
     }
 
     public static void main(String[] args) throws Exception {
@@ -118,6 +123,9 @@ public final class XmlValidationApplication {
         @Option(names = "--check-schematron-schema", description = "Run SchXslt assembled-schema checks before validating documents that use Schematron")
         private boolean checkSchematronSchema;
 
+        @Option(names = "--schematron-severity-threshold", description = "Skip Schematron assertions with a severity lower than the threshold. One of: INFO, WARNING, ERROR, FATAL.", defaultValue = "INFO")
+        private SchematronSeverityLevel schematronSeverityThreshold = SchematronSeverityLevel.INFO;
+
         @Option(names = "--format", description = "Output format: ${COMPLETION-CANDIDATES}")
         private OutputFormat format;
 
@@ -173,6 +181,7 @@ public final class XmlValidationApplication {
                     config.schemaAliases(),
                     xmlModelRules,
                     checkSchematronSchema,
+                    schematronSeverityThreshold,
                     verbose,
                     format,
                     output,
@@ -203,6 +212,7 @@ public final class XmlValidationApplication {
                         arguments.jobs(),
                         arguments.failFast(),
                         checkSchematronSchema,
+                        schematronSeverityThreshold.cliValue(),
                         config.schemaAliases().size(),
                         ruleDescriptions,
                         normalizedFiles));
@@ -215,6 +225,7 @@ public final class XmlValidationApplication {
             output.printf("Jobs: %d%n", arguments.jobs());
             output.printf("Fail fast: %s%n", arguments.failFast());
             output.printf("Check Schematron schema: %s%n", checkSchematronSchema);
+            output.printf("Schematron severity threshold: %s%n", schematronSeverityThreshold.cliValue());
             output.printf("Schema aliases: %d%n", config.schemaAliases().size());
             output.printf("Rules (%d):%n", ruleDescriptions.size());
             for (String ruleDescription : ruleDescriptions) {

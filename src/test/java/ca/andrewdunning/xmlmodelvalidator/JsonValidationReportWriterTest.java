@@ -48,6 +48,7 @@ final class JsonValidationReportWriterTest {
                                 4,
                                 true,
                                 true,
+                                "error",
                                 2,
                                 List.of("href=\"schema.rng\""),
                                 List.of("folder/doc\"name.xml"));
@@ -58,6 +59,7 @@ final class JsonValidationReportWriterTest {
                 assertTrue(planJson.contains("\"configFile\":\"config\\tfile.toml\""));
                 assertTrue(planJson.contains("\"fileExtensions\":[\"xml\",\"tei\\\"xml\"]"));
                 assertTrue(planJson.contains("\"checkSchematronSchema\":true"));
+                assertTrue(planJson.contains("\"schematronSeverityThreshold\":\"error\""));
                 assertTrue(planJson.contains("\"rules\":[\"href=\\\"schema.rng\\\"\"]"));
         }
 
@@ -73,6 +75,7 @@ final class JsonValidationReportWriterTest {
                                 1,
                                 false,
                                 false,
+                                "info",
                                 0,
                                 List.of(),
                                 List.of("document.xml"));

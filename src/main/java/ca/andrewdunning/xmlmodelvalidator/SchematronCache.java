@@ -52,14 +52,21 @@ final class SchematronCache {
     private final RemoteSchemaCache remoteSchemaCache;
 
     SchematronCache(Processor processor) {
-        this(processor, false);
+        this(processor, false, SchematronSeverityLevel.INFO);
     }
 
     SchematronCache(Processor processor, boolean checkSchematronSchema) {
+        this(processor, checkSchematronSchema, SchematronSeverityLevel.INFO);
+    }
+
+    SchematronCache(
+            Processor processor,
+            boolean checkSchematronSchema,
+            SchematronSeverityLevel severityThreshold) {
         this.processor = processor;
         this.preparedSchemas = new HashMap<>();
         this.validators = new HashMap<>();
-        this.transpiler = compileTranspiler(processor, checkSchematronSchema);
+        this.transpiler = compileTranspiler(processor, checkSchematronSchema, severityThreshold);
         this.remoteSchemaCache = new RemoteSchemaCache();
     }
 
@@ -277,12 +284,18 @@ final class SchematronCache {
         return phaseDestination.getXdmNode().getStringValue();
     }
 
-    private static XsltExecutable compileTranspiler(Processor processor, boolean checkSchematronSchema) {
+    private static XsltExecutable compileTranspiler(
+            Processor processor,
+            boolean checkSchematronSchema,
+            SchematronSeverityLevel severityThreshold) {
         try {
             XsltCompiler compiler = processor.newXsltCompiler();
             compiler.setParameter(
                     new QName(SCHXSLT_NS, "check-assembled-schema"),
                     XdmValue.makeValue(checkSchematronSchema));
+            compiler.setParameter(
+                    new QName(SCHXSLT_NS, "severity-threshold"),
+                    XdmValue.makeValue(severityThreshold.cliValue()));
             try (InputStream stream = SchematronCache.class.getClassLoader()
                     .getResourceAsStream("content/transpile.xsl")) {
                 if (stream == null) {
