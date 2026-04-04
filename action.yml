@@ -103,6 +103,8 @@ runs:
     - name: Set Up Gradle
       if: steps.restore-jar-cache.outputs.cache-hit != 'true'
       uses: gradle/actions/setup-gradle@v6
+      with:
+        add-job-summary: on-failure
     - name: Validate XML
       id: validate
       shell: bash
