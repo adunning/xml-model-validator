@@ -93,12 +93,13 @@ runs:
       uses: actions/cache/restore@v5
       with:
         path: ~/.cache/xml-model-validator/jar
-        key: xml-model-validator-jar-${{ runner.os }}-${{ github.action_sha }}
+        key: xml-model-validator-jar-${{ runner.os }}-${{ github.action_ref }}
     - name: Set Up Java
       uses: actions/setup-java@v5
       with:
         distribution: temurin
         java-version: "25"
+        overwrite-settings: false
     - name: Set Up Gradle
       if: steps.restore-jar-cache.outputs.cache-hit != 'true'
       uses: gradle/actions/setup-gradle@v6
@@ -133,7 +134,7 @@ runs:
       uses: actions/cache/save@v5
       with:
         path: ~/.cache/xml-model-validator/jar
-        key: xml-model-validator-jar-${{ runner.os }}-${{ github.action_sha }}
+        key: xml-model-validator-jar-${{ runner.os }}-${{ github.action_ref }}
     - name: Save Validator Runtime Cache
       if: always() && steps.restore-runtime-cache.outputs.cache-hit != 'true'
       uses: actions/cache/save@v5
