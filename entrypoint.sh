@@ -11,7 +11,6 @@ CHANGED_FILE_LIST="${RUNNER_TEMP}/xml-model-validator-changed-files.txt"
 SUMMARY_JSON_FILE="${RUNNER_TEMP}/xml-model-validator-summary.json"
 JSON_REPORT_DESTINATION=""
 
-mkdir -p "${HOME}/.m2/repository" "${HOME}/.m2/wrapper"
 mkdir -p \
   "${XML_MODEL_VALIDATOR_CACHE_HOME}/jar" \
   "${XML_MODEL_VALIDATOR_CACHE_HOME}/schema-downloads" \
@@ -19,8 +18,8 @@ mkdir -p \
 
 build_validator_jar() {
   echo "XML Model Validator: building from source..." >&2
-  (cd "${ACTION_ROOT}" && ./mvnw -B -q package -DskipTests)
-  cp "${ACTION_ROOT}/target/xml-model-validator.jar" "${JAR_PATH}"
+  (cd "${ACTION_ROOT}" && gradle -q --no-daemon jar -x test)
+  cp "${ACTION_ROOT}/build/libs/xml-model-validator.jar" "${JAR_PATH}"
 }
 
 ensure_git_history() {

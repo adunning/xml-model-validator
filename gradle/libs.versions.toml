@@ -1,0 +1,19 @@
+[versions]
+jing = "20241231"
+trang = "20241231"
+saxon = "12.9"
+schxslt2 = "1.9"
+picocli = "4.7.7"
+tomlj = "1.1.1"
+junit = "6.0.3"
+
+[libraries]
+jing = { module = "org.relaxng:jing", version.ref = "jing" }
+trang = { module = "org.relaxng:trang", version.ref = "trang" }
+saxonHe = { module = "net.sf.saxon:Saxon-HE", version.ref = "saxon" }
+schxslt2 = { module = "name.dmaus.schxslt:schxslt2", version.ref = "schxslt2" }
+picocli = { module = "info.picocli:picocli", version.ref = "picocli" }
+tomlj = { module = "org.tomlj:tomlj", version.ref = "tomlj" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }

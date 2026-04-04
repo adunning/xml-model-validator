@@ -511,19 +511,19 @@ The GitHub Action sets up Java internally and runs the validator with
 `java -jar`.
 
 When the action is running from a published release ref such as `@v2` or
-`@v2.1.0`, the composite action first resolves the exact release tag from Maven
+`@v2.1.0`, the composite action first resolves the exact release tag from Gradle
 project metadata. On a cold runner it then queries the GitHub Releases API for
 the matching release assets, downloads the published jar, and verifies it
 against the published checksum before use. For branch refs and other unreleased
 revisions, or if the release lookup or asset download fails, the action falls
-back to building the shaded jar from source.
+back to building the runnable jar from source.
 
 The built jar is cached under `~/.cache/xml-model-validator/jar`, and its cache
 key is derived from the action's build inputs so a cached binary is only reused
 when the jar-producing contents match.
 
-The action also caches Maven's local repository and wrapper directories under
-`~/.m2`, keyed from Maven dependency inputs so dependency downloads are reused
+The action also caches Gradle's dependency and wrapper directories under
+`~/.gradle`, keyed from Gradle dependency inputs so dependency downloads are reused
 until those inputs change.
 
 Remote schema downloads and prepared Schematron artifacts are cached under
@@ -540,7 +540,7 @@ which normally means using `actions/checkout@v6` earlier in the job.
 Build the runnable jar:
 
 ```bash
-./mvnw -q -DskipTests package
+gradle -q jar -x test
 ```
 
 ## CLI
@@ -598,38 +598,38 @@ Output behaviour:
 Run:
 
 ```bash
-java -jar target/xml-model-validator.jar --directory path/to/xml -j 0
-java -jar target/xml-model-validator.jar --plan --directory path/to/xml
-java -jar target/xml-model-validator.jar --verbose --directory path/to/xml -j 0
-find path/to/xml -name '*.xml' -print | java -jar target/xml-model-validator.jar --files-from - -j 0
-java -jar target/xml-model-validator.jar --files-from path/to/files.txt -j 0
-java -jar target/xml-model-validator.jar path/to/a.xml path/to/b.xml -j 0
-java -jar target/xml-model-validator.jar --directory path/to/styles --file-extensions csl -j 0
-java -jar target/xml-model-validator.jar --directory path/to/styles --file-extensions csl --config .xml-validator/config.toml -j 0
+java -jar build/libs/xml-model-validator.jar --directory path/to/xml -j 0
+java -jar build/libs/xml-model-validator.jar --plan --directory path/to/xml
+java -jar build/libs/xml-model-validator.jar --verbose --directory path/to/xml -j 0
+find path/to/xml -name '*.xml' -print | java -jar build/libs/xml-model-validator.jar --files-from - -j 0
+java -jar build/libs/xml-model-validator.jar --files-from path/to/files.txt -j 0
+java -jar build/libs/xml-model-validator.jar path/to/a.xml path/to/b.xml -j 0
+java -jar build/libs/xml-model-validator.jar --directory path/to/styles --file-extensions csl -j 0
+java -jar build/libs/xml-model-validator.jar --directory path/to/styles --file-extensions csl --config .xml-validator/config.toml -j 0
 ```
 
 Show CLI usage:
 
 ```bash
-java -jar target/xml-model-validator.jar --help
+java -jar build/libs/xml-model-validator.jar --help
 ```
 
 Show CLI version:
 
 ```bash
-java -jar target/xml-model-validator.jar --version
+java -jar build/libs/xml-model-validator.jar --version
 ```
 
 Write a JSON report:
 
 ```bash
-java -jar target/xml-model-validator.jar --format json path/to/a.xml path/to/b.xml
+java -jar build/libs/xml-model-validator.jar --format json path/to/a.xml path/to/b.xml
 ```
 
 Preview the full validation plan:
 
 ```bash
-java -jar target/xml-model-validator.jar --plan --format json --directory path/to/xml
+java -jar build/libs/xml-model-validator.jar --plan --format json --directory path/to/xml
 ```
 
 Verify a published release artifact:

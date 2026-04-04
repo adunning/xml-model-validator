@@ -6,7 +6,7 @@ Run the full verification suite before opening a pull request or cutting a
 release:
 
 ```bash
-./mvnw -B verify
+gradle check
 ```
 
 ## Pull requests
@@ -32,12 +32,12 @@ release:
 
 ## Release process
 
-1. Ensure `pom.xml` and `CITATION.cff` use the target version.
+1. Ensure `gradle.properties` and `CITATION.cff` use the target version.
 2. Ensure `CITATION.cff` `date-released` matches the planned release date.
 3. Run the full verification suite locally:
 
 ```bash
-./mvnw -B verify
+gradle check
 ```
 
 4. Tag and push a strict SemVer tag in the form `vX.Y.Z`:

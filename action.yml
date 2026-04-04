@@ -70,45 +70,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Compute Cache Keys
-      id: cache-keys
-      shell: bash
-      working-directory: ${{ github.action_path }}
-      run: |
-        set -euo pipefail
-
-        hash_inputs() {
-          local path
-          local paths=()
-
-          for path in "$@"; do
-            if [ -e "$path" ]; then
-              paths+=("$path")
-            fi
-          done
-
-          if [ "${#paths[@]}" -eq 0 ]; then
-            printf '%s' "none"
-            return
-          fi
-
-          find "${paths[@]}" \( -type f -o -type l \) -print0 \
-            | sort -z \
-            | xargs -0 shasum -a 256 \
-            | shasum -a 256 \
-            | awk '{print $1}'
-        }
-
-        jar_hash="$(hash_inputs pom.xml mvnw .mvn/wrapper src/main)"
-        maven_hash="$(hash_inputs pom.xml .mvn/wrapper/maven-wrapper.properties)"
-        runtime_hash="$(hash_inputs pom.xml mvnw .mvn/wrapper src/main action.yml entrypoint.sh)"
-        runtime_prefix="xml-model-validator-runtime-${{ runner.os }}-${runtime_hash}"
-        runtime_key="${runtime_prefix}-${{ github.run_id }}-${{ github.run_attempt }}"
-
-        echo "jar=xml-model-validator-jar-${{ runner.os }}-${jar_hash}" >> "${GITHUB_OUTPUT}"
-        echo "maven=xml-model-validator-maven-${{ runner.os }}-${maven_hash}" >> "${GITHUB_OUTPUT}"
-        echo "runtime_prefix=${runtime_prefix}" >> "${GITHUB_OUTPUT}"
-        echo "runtime=${runtime_key}" >> "${GITHUB_OUTPUT}"
     - name: Restore Validator Runtime Cache
       id: restore-runtime-cache
       uses: actions/cache/restore@v5
@@ -116,52 +77,16 @@ runs:
         path: |
           ~/.cache/xml-model-validator/schema-downloads
           ~/.cache/xml-model-validator/schematron
-        key: ${{ steps.cache-keys.outputs.runtime }}
+        key: xml-model-validator-runtime-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
         restore-keys: |
-          ${{ steps.cache-keys.outputs.runtime_prefix }}-
           xml-model-validator-runtime-${{ runner.os }}-
-    - name: Restore Validator Jar Cache
-      id: restore-jar-cache
-      uses: actions/cache/restore@v5
-      with:
-        path: ~/.cache/xml-model-validator/jar
-        key: ${{ steps.cache-keys.outputs.jar }}
-    - name: Restore Maven Cache
-      id: restore-maven-cache
-      uses: actions/cache/restore@v5
-      with:
-        path: |
-          ~/.m2/repository
-          ~/.m2/wrapper
-        key: ${{ steps.cache-keys.outputs.maven }}
-        restore-keys: |
-          xml-model-validator-maven-${{ runner.os }}-
     - name: Set Up Java
       uses: actions/setup-java@v5
       with:
         distribution: temurin
         java-version: "25"
-    - name: Resolve Release Jar Tag
-      id: resolve-release-jar-tag
-      if: startsWith(github.action_ref, 'v')
-      shell: bash
-      working-directory: ${{ github.action_path }}
-      env:
-        XML_MODEL_VALIDATOR_ACTION_REF: ${{ github.action_ref }}
-      run: bash "${{ github.action_path }}/scripts/resolve-release-jar-tag.sh"
-    - name: Download Release Jar
-      id: download-release-jar
-      if: steps.restore-jar-cache.outputs.cache-hit != 'true' && steps.resolve-release-jar-tag.outputs.release_tag != ''
-      continue-on-error: true
-      uses: actions/github-script@v8
-      env:
-        XML_MODEL_VALIDATOR_ACTION_REPOSITORY: ${{ github.action_repository }}
-        XML_MODEL_VALIDATOR_RELEASE_TAG: ${{ steps.resolve-release-jar-tag.outputs.release_tag }}
-        GITHUB_TOKEN: ${{ github.token }}
-      with:
-        script: |
-          const { main } = require('${{ github.action_path }}/scripts/download-release-jar.cjs');
-          await main({ github });
+    - name: Set Up Gradle
+      uses: gradle/actions/setup-gradle@v6
     - name: Validate XML
       id: validate
       shell: bash
@@ -193,18 +118,4 @@ runs:
         path: |
           ~/.cache/xml-model-validator/schema-downloads
           ~/.cache/xml-model-validator/schematron
-        key: ${{ steps.cache-keys.outputs.runtime }}
-    - name: Save Validator Jar Cache
-      if: always() && steps.restore-jar-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v5
-      with:
-        path: ~/.cache/xml-model-validator/jar
-        key: ${{ steps.cache-keys.outputs.jar }}
-    - name: Save Maven Cache
-      if: always() && steps.restore-maven-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v5
-      with:
-        path: |
-          ~/.m2/repository
-          ~/.m2/wrapper
-        key: ${{ steps.cache-keys.outputs.maven }}
+        key: xml-model-validator-runtime-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}

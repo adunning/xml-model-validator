@@ -18,6 +18,13 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - uses: gradle/actions/setup-gradle@v6
+
       - name: Validate Release Version Metadata
         shell: bash
         run: |
@@ -34,36 +41,27 @@ jobs:
 
           release_version="${tag#v}"
 
-          pom_version="$(./mvnw -q -Dexpression=project.version -DforceStdout help:evaluate)"
+          project_version="$(gradle -q printVersion)"
           cff_version="$(sed -n 's|^[[:space:]]*version:[[:space:]]*"\([^"]*\)"[[:space:]]*$|\1|p' CITATION.cff | head -n1)"
 
-          if [[ -z "${pom_version}" || -z "${cff_version}" ]]; then
-            echo "Unable to read version from pom.xml or CITATION.cff"
+          if [[ -z "${project_version}" || -z "${cff_version}" ]]; then
+            echo "Unable to read version from Gradle metadata or CITATION.cff"
             exit 1
           fi
 
-          if [[ "${release_version}" != "${pom_version}" || "${release_version}" != "${cff_version}" ]]; then
+          if [[ "${release_version}" != "${project_version}" || "${release_version}" != "${cff_version}" ]]; then
             echo "Release metadata mismatch detected"
             echo "tag=${tag}"
             echo "normalized_tag=${release_version}"
-            echo "pom.xml version=${pom_version}"
+            echo "project version=${project_version}"
             echo "CITATION.cff version=${cff_version}"
             exit 1
           fi
 
-          echo "Release tag, pom.xml, and CITATION.cff versions are synchronized: ${release_version}"
-
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "25"
-          cache: maven
-          cache-dependency-path: |
-            pom.xml
-            .mvn/wrapper/maven-wrapper.properties
+          echo "Release tag, Gradle metadata, and CITATION.cff versions are synchronized: ${release_version}"
 
       - name: Build and Verify
-        run: ./mvnw -B -q verify
+        run: gradle check jar
 
       - name: Validate Jar Version Output
         shell: bash
@@ -73,7 +71,7 @@ jobs:
           expected_version="${GITHUB_REF_NAME}"
           expected_version="${expected_version#v}"
 
-          actual_output="$(java -jar target/xml-model-validator.jar --version)"
+          actual_output="$(java -jar build/libs/xml-model-validator.jar --version)"
           actual_version="${actual_output#xml-model-validator }"
 
           if [[ "${actual_version}" != "${expected_version}" ]]; then
@@ -91,7 +89,7 @@ jobs:
           set -euo pipefail
 
           mkdir -p dist
-          cp target/xml-model-validator.jar dist/xml-model-validator.jar
+          cp build/libs/xml-model-validator.jar dist/xml-model-validator.jar
           shasum -a 256 dist/xml-model-validator.jar > dist/xml-model-validator.jar.sha256
 
       - name: Upload Release Assets

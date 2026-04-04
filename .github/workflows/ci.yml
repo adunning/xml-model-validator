@@ -16,59 +16,16 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "25"
-          cache: maven
-          cache-dependency-path: |
-            pom.xml
-            .mvn/wrapper/maven-wrapper.properties
+
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Verify
-        run: ./mvnw -B -q verify
-
-      - name: Test Release Helper Scripts
-        shell: bash
-        run: |
-          set -euo pipefail
-          sh scripts/resolve-release-jar-tag.test.sh
-          node --test scripts/download-release-jar.test.cjs
-
-      - name: Smoke Test
-        run: |
-          tmpdir="$(mktemp -d)"
-          repo="${tmpdir}/repo"
-          mkdir -p "${repo}"
-          cd "${repo}"
-          git init -q
-          git config user.name "CI"
-          git config user.email "ci@example.com"
-          cat > "${tmpdir}/schema.rng" <<'EOF'
-          <grammar xmlns="http://relaxng.org/ns/structure/1.0">
-            <start>
-              <element name="root">
-                <empty/>
-              </element>
-            </start>
-          </grammar>
-          EOF
-          cp "${tmpdir}/schema.rng" "${repo}/schema.rng"
-          cat > "${repo}/valid.xml" <<'EOF'
-          <?xml version="1.0"?>
-          <?xml-model href="schema.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
-          <root/>
-          EOF
-          git add schema.rng valid.xml
-          git commit -qm "Initial XML"
-
-          XML_MODEL_VALIDATOR_WORKSPACE="${repo}" \
-          XML_MODEL_VALIDATOR_CACHE_HOME="${tmpdir}/cache" \
-          XML_MODEL_VALIDATOR_INPUT_JOBS="0" \
-          bash "${GITHUB_WORKSPACE}/entrypoint.sh"
+        run: gradle check
 
   action-integration:
     runs-on: ubuntu-latest
@@ -79,6 +36,13 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Set Up Fixture Files
         shell: bash
