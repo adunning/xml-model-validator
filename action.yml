@@ -88,12 +88,19 @@ runs:
         key: xml-model-validator-runtime-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
         restore-keys: |
           xml-model-validator-runtime-${{ runner.os }}-
+    - name: Restore Validator JAR Cache
+      id: restore-jar-cache
+      uses: actions/cache/restore@v5
+      with:
+        path: ~/.cache/xml-model-validator/jar
+        key: xml-model-validator-jar-${{ runner.os }}-${{ github.action_sha }}
     - name: Set Up Java
       uses: actions/setup-java@v5
       with:
         distribution: temurin
         java-version: "25"
     - name: Set Up Gradle
+      if: steps.restore-jar-cache.outputs.cache-hit != 'true'
       uses: gradle/actions/setup-gradle@v6
     - name: Validate XML
       id: validate
@@ -121,6 +128,12 @@ runs:
       run: |
         set -euo pipefail
         bash "${{ github.action_path }}/entrypoint.sh"
+    - name: Save Validator JAR Cache
+      if: always() && steps.restore-jar-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v5
+      with:
+        path: ~/.cache/xml-model-validator/jar
+        key: xml-model-validator-jar-${{ runner.os }}-${{ github.action_sha }}
     - name: Save Validator Runtime Cache
       if: always() && steps.restore-runtime-cache.outputs.cache-hit != 'true'
       uses: actions/cache/save@v5

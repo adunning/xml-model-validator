@@ -23,6 +23,17 @@ build_validator_jar() {
   cp "${ACTION_ROOT}/build/libs/xml-model-validator.jar" "${JAR_PATH}"
 }
 
+download_validator_jar() {
+  if [ -z "${GITHUB_ACTION_REF:-}" ] || [ -z "${GITHUB_ACTION_REPOSITORY:-}" ]; then
+    return 1
+  fi
+  gh release download "${GITHUB_ACTION_REF}" \
+    --repo "${GITHUB_ACTION_REPOSITORY}" \
+    --pattern "xml-model-validator.jar" \
+    --dir "${JAR_CACHE_DIR}" \
+    --clobber 2>/dev/null
+}
+
 ensure_git_history() {
   if [ "$(git rev-parse --is-shallow-repository 2>/dev/null || printf 'false')" = "true" ]; then
     git fetch --no-tags --prune --unshallow origin >/dev/null 2>&1 || true
@@ -420,7 +431,11 @@ else
 fi
 
 if [ ! -f "${JAR_PATH}" ]; then
-  build_validator_jar
+  if download_validator_jar; then
+    echo "XML Model Validator: downloaded pre-built JAR for ${GITHUB_ACTION_REF:-unknown}." >&2
+  else
+    build_validator_jar
+  fi
 fi
 
 set +e
