@@ -10,9 +10,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Formats validation progress, console output, and GitHub Actions annotations.
- */
+/** Formats validation progress, console output, and GitHub Actions annotations. */
 final class ValidationReporter {
     private static final int STEP_SUMMARY_ISSUE_LIMIT = 20;
 
@@ -100,9 +98,7 @@ final class ValidationReporter {
     }
 
     private static Summary summarize(List<ValidationResult> results, Duration elapsed) {
-        int failedFiles = (int) results.stream()
-                .filter(result -> !result.ok())
-                .count();
+        int failedFiles = (int) results.stream().filter(result -> !result.ok()).count();
         int warningCount = (int) results.stream()
                 .flatMap(result -> result.issues().stream())
                 .filter(ValidationIssue::warning)
@@ -126,7 +122,8 @@ final class ValidationReporter {
         }
 
         int okFiles = summary.filesChecked() - summary.failedFiles();
-        error.printf("INFO: Validated %d file(s): %d OK, %d failed in %.2fs%n",
+        error.printf(
+                "INFO: Validated %d file(s): %d OK, %d failed in %.2fs%n",
                 summary.filesChecked(), okFiles, summary.failedFiles(), seconds);
         error.printf("ERROR: %d file(s) failed validation%n", summary.failedFiles());
         return 1;
@@ -142,41 +139,50 @@ final class ValidationReporter {
 
         double seconds = summary.elapsed().toMillis() / 1000.0;
         if (summary.failedFiles() == 0) {
-            output.printf("::notice title=XML Validation::Validated %d file(s) in %.2fs with %d warning(s)%n",
+            output.printf(
+                    "::notice title=XML Validation::Validated %d file(s) in %.2fs with %d warning(s)%n",
                     summary.filesChecked(), seconds, summary.warningCount());
             return 0;
         }
 
         int okFiles = summary.filesChecked() - summary.failedFiles();
-        error.printf("INFO: Validated %d file(s): %d OK, %d failed in %.2fs%n",
+        error.printf(
+                "INFO: Validated %d file(s): %d OK, %d failed in %.2fs%n",
                 summary.filesChecked(), okFiles, summary.failedFiles(), seconds);
         error.printf("ERROR: %d file(s) failed validation%n", summary.failedFiles());
-        output.printf("::error title=XML Validation Summary::%d of %d file(s) failed validation%n",
+        output.printf(
+                "::error title=XML Validation Summary::%d of %d file(s) failed validation%n",
                 summary.failedFiles(), summary.filesChecked());
         return 1;
     }
 
     private int emitJsonSummary(List<ValidationResult> results, Summary summary) {
         output.println(jsonReportWriter.write(
-                results,
-                summary.filesChecked(),
-                summary.failedFiles(),
-                summary.warningCount(),
-                summary.elapsed()));
-        return summary.failedFiles() == 0 ? 0 : 1;
+                results, summary.filesChecked(), summary.failedFiles(), summary.warningCount(), summary.elapsed()));
+        if (summary.failedFiles() == 0) {
+            return 0;
+        } else {
+            return 1;
+        }
     }
 
     private void emitTextIssue(ValidationIssue issue) {
-        String prefix = issue.warning() ? "WARNING" : "ERROR";
-        String location = issue.line() != null
-                ? String.format("%s, line %d: ", ValidationSupport.relativize(issue.file()), issue.line())
-                : ValidationSupport.relativize(issue.file()) + ": ";
+        String prefix;
+        if (issue.warning()) {
+            prefix = "WARNING";
+        } else {
+            prefix = "ERROR";
+        }
+        String location;
+        if (issue.line() != null) {
+            location = String.format("%s, line %d: ", ValidationSupport.relativize(issue.file()), issue.line());
+        } else {
+            location = ValidationSupport.relativize(issue.file()) + ": ";
+        }
         error.printf("%s: %s%s%n", prefix, location, issue.message());
     }
 
-    /**
-     * Formats a single validation issue as a GitHub workflow command annotation.
-     */
+    /** Formats a single validation issue as a GitHub workflow command annotation. */
     static String formatGithubAnnotation(ValidationIssue issue) {
         List<String> props = new ArrayList<>();
         props.add("file=" + ValidationSupport.escapeProperty(ValidationSupport.relativize(issue.file())));
@@ -193,12 +199,14 @@ final class ValidationReporter {
         if (issue.endColumn() != null) {
             props.add("endColumn=" + issue.endColumn());
         }
-        String level = issue.warning() ? "warning" : "error";
+        String level;
+        if (issue.warning()) {
+            level = "warning";
+        } else {
+            level = "error";
+        }
         return String.format(
-                "::%s %s::%s",
-                level,
-                String.join(",", props),
-                ValidationSupport.escapeMessage(issue.message()));
+                "::%s %s::%s", level, String.join(",", props), ValidationSupport.escapeMessage(issue.message()));
     }
 
     private void writeGithubStepSummary(List<ValidationResult> results, Summary summary) {
@@ -207,9 +215,8 @@ final class ValidationReporter {
         }
 
         StringBuilder markdown = new StringBuilder();
-        List<ValidationIssue> issues = results.stream()
-                .flatMap(result -> result.issues().stream())
-                .toList();
+        List<ValidationIssue> issues =
+                results.stream().flatMap(result -> result.issues().stream()).toList();
         appendSummaryHeader(markdown, summary);
         appendRunContext(markdown);
         appendJsonReportReference(markdown);
@@ -225,16 +232,14 @@ final class ValidationReporter {
         } catch (IOException exception) {
             error.printf(
                     "WARNING: Could not write GitHub step summary to %s: %s%n",
-                    githubStepSummaryPath,
-                    exception.getMessage());
+                    githubStepSummaryPath, exception.getMessage());
         }
     }
 
     private static void appendSummaryHeader(StringBuilder markdown, Summary summary) {
         markdown.append("## XML Validation\n\n");
-        markdown.append(summary.failedFiles() == 0
-                ? "Validation completed successfully.\n\n"
-                : "Validation found errors.\n\n");
+        markdown.append(
+                summary.failedFiles() == 0 ? "Validation completed successfully.\n\n" : "Validation found errors.\n\n");
         appendTable(
                 markdown,
                 List.of("Checked", "Failed", "Warnings", "Duration"),
@@ -270,9 +275,7 @@ final class ValidationReporter {
         if (jsonReportPath == null || jsonReportPath.isBlank()) {
             return;
         }
-        markdown.append("JSON report: `")
-                .append(escapeMarkdown(jsonReportPath))
-                .append("`\n\n");
+        markdown.append("JSON report: `").append(escapeMarkdown(jsonReportPath)).append("`\n\n");
     }
 
     private static void appendIssues(StringBuilder markdown, List<ValidationIssue> issues) {
@@ -296,22 +299,19 @@ final class ValidationReporter {
         markdown.append('\n');
         int omittedIssueCount = issues.size() - STEP_SUMMARY_ISSUE_LIMIT;
         if (omittedIssueCount > 0) {
-            markdown.append(omittedIssueCount)
-                    .append(" additional issue(s) omitted.\n\n");
+            markdown.append(omittedIssueCount).append(" additional issue(s) omitted.\n\n");
         }
     }
 
     private static void appendTable(StringBuilder markdown, List<String> headers, List<List<String>> rows) {
-        markdown.append("| ")
-                .append(String.join(" | ", headers))
-                .append(" |\n| ");
-        markdown.append(
-                headers.stream().map(ignored -> "---").reduce((left, right) -> left + " | " + right).orElse("---"));
+        markdown.append("| ").append(String.join(" | ", headers)).append(" |\n| ");
+        markdown.append(headers.stream()
+                .map(ignored -> "---")
+                .reduce((left, right) -> left + " | " + right)
+                .orElse("---"));
         markdown.append(" |\n");
         for (List<String> row : rows) {
-            markdown.append("| ")
-                    .append(String.join(" | ", row))
-                    .append(" |\n");
+            markdown.append("| ").append(String.join(" | ", row)).append(" |\n");
         }
     }
 
@@ -330,10 +330,7 @@ final class ValidationReporter {
     }
 
     private static String escapeMarkdown(String value) {
-        return value
-                .replace("\\", "\\\\")
-                .replace("|", "\\|")
-                .replace("\n", " ");
+        return value.replace("\\", "\\\\").replace("|", "\\|").replace("\n", " ");
     }
 
     private static String describeSelection(String selectionContext) {
@@ -381,6 +378,5 @@ final class ValidationReporter {
         return Path.of(summaryPath);
     }
 
-    private record Summary(int filesChecked, int failedFiles, int warningCount, Duration elapsed) {
-    }
+    private record Summary(int filesChecked, int failedFiles, int warningCount, Duration elapsed) {}
 }

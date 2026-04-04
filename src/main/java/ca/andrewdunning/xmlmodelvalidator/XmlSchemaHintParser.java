@@ -1,25 +1,20 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
-import javax.xml.stream.XMLInputFactory;
-import javax.xml.stream.XMLStreamConstants;
-import javax.xml.stream.XMLStreamException;
-import javax.xml.stream.XMLStreamReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamConstants;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamReader;
 
-/**
- * Reads legacy XML Schema instance hints from the document element.
- */
+/** Reads legacy XML Schema instance hints from the document element. */
 final class XmlSchemaHintParser {
     private static final String XSI_NS = "http://www.w3.org/2001/XMLSchema-instance";
 
-    /**
-     * Returns XSD schema locations from {@code xsi:schemaLocation} and
-     * {@code xsi:noNamespaceSchemaLocation}.
-     */
+    /** Returns XSD schema locations from {@code xsi:schemaLocation} and {@code xsi:noNamespaceSchemaLocation}. */
     List<String> parse(Path file) throws IOException {
         XMLInputFactory factory = XMLInputFactory.newFactory();
         factory.setProperty(XMLInputFactory.SUPPORT_DTD, Boolean.FALSE);

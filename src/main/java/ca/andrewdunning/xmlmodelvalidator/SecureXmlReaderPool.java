@@ -1,16 +1,12 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
-import org.xml.sax.SAXException;
-import org.xml.sax.XMLReader;
-
 import javax.xml.XMLConstants;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParserFactory;
+import org.xml.sax.SAXException;
+import org.xml.sax.XMLReader;
 
-/**
- * Reuses secure SAX readers per thread to avoid repeated parser construction on
- * hot validation paths.
- */
+/** Reuses secure SAX readers per thread to avoid repeated parser construction on hot validation paths. */
 final class SecureXmlReaderPool {
     private final ThreadLocal<XMLReader> readers = ThreadLocal.withInitial(this::createReaderUnchecked);
 

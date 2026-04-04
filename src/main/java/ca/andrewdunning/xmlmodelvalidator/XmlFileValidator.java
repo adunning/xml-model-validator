@@ -1,18 +1,5 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
-import net.sf.saxon.s9api.DocumentBuilder;
-import net.sf.saxon.s9api.Processor;
-import net.sf.saxon.s9api.QName;
-import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.XdmDestination;
-import net.sf.saxon.s9api.XdmItem;
-import net.sf.saxon.s9api.XdmNode;
-import net.sf.saxon.s9api.XdmSequenceIterator;
-import net.sf.saxon.s9api.XPathCompiler;
-import net.sf.saxon.s9api.XPathExecutable;
-import net.sf.saxon.s9api.XPathSelector;
-import net.sf.saxon.s9api.Xslt30Transformer;
-import net.sf.saxon.s9api.XsltExecutable;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -24,11 +11,23 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import net.sf.saxon.s9api.DocumentBuilder;
+import net.sf.saxon.s9api.Processor;
+import net.sf.saxon.s9api.QName;
+import net.sf.saxon.s9api.SaxonApiException;
+import net.sf.saxon.s9api.XPathCompiler;
+import net.sf.saxon.s9api.XPathExecutable;
+import net.sf.saxon.s9api.XPathSelector;
+import net.sf.saxon.s9api.XdmDestination;
+import net.sf.saxon.s9api.XdmItem;
+import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.s9api.XdmSequenceIterator;
+import net.sf.saxon.s9api.Xslt30Transformer;
+import net.sf.saxon.s9api.XsltExecutable;
 
 /**
- * Validates a single XML file by applying supported {@code xml-model}
- * declarations first and falling back to XML Schema instance hints when no
- * supported model is present.
+ * Validates a single XML file by applying supported {@code xml-model} declarations first and falling back to XML Schema
+ * instance hints when no supported model is present.
  */
 final class XmlFileValidator {
     private final Processor processor;
@@ -51,10 +50,7 @@ final class XmlFileValidator {
         this(schemaAliases, xmlModelRules, false, SchematronSeverityLevel.INFO);
     }
 
-    XmlFileValidator(
-            Map<String, Path> schemaAliases,
-            List<XmlModelRule> xmlModelRules,
-            boolean checkSchematronSchema) {
+    XmlFileValidator(Map<String, Path> schemaAliases, List<XmlModelRule> xmlModelRules, boolean checkSchematronSchema) {
         this(schemaAliases, xmlModelRules, checkSchematronSchema, SchematronSeverityLevel.INFO);
     }
 
@@ -67,10 +63,10 @@ final class XmlFileValidator {
         this.svrlXPathCompiler = processor.newXPathCompiler();
         this.svrlXPathCompiler.declareNamespace("svrl", ValidationSupport.SVRL_NS);
         try {
-            this.svrlIssueSelector = svrlXPathCompiler.compile(
-                    "//svrl:failed-assert | //svrl:successful-report | //svrl:error");
-            this.svrlNamespaceSelector = svrlXPathCompiler
-                    .compile("/svrl:schematron-output/svrl:ns-prefix-in-attribute-values");
+            this.svrlIssueSelector =
+                    svrlXPathCompiler.compile("//svrl:failed-assert | //svrl:successful-report | //svrl:error");
+            this.svrlNamespaceSelector =
+                    svrlXPathCompiler.compile("/svrl:schematron-output/svrl:ns-prefix-in-attribute-values");
         } catch (SaxonApiException exception) {
             throw new IllegalStateException("Could not compile cached SVRL XPath expressions", exception);
         }
@@ -116,30 +112,28 @@ final class XmlFileValidator {
             for (ResolvedSchema schema : relaxNgSchemas) {
                 issues.addAll(jingValidator.validate(schema.source(), file));
                 if (schema.entry().supportsEmbeddedSchematron()) {
-                    issues.addAll(validateSchematron(schema.source(), file, schema.entry().phase()));
+                    issues.addAll(validateSchematron(
+                            schema.source(), file, schema.entry().phase()));
                 }
             }
             for (ResolvedSchema schema : schematronSchemas) {
-                issues.addAll(validateSchematron(schema.source(), file, schema.entry().phase()));
+                issues.addAll(
+                        validateSchematron(schema.source(), file, schema.entry().phase()));
             }
 
             boolean hasErrors = issues.stream().anyMatch(issue -> !issue.warning());
             return new ValidationResult(file, !hasErrors, issues);
         } catch (IllegalArgumentException exception) {
-            return ValidationResult.failed(
-                    file,
-                    new ValidationIssue(file, exception.getMessage(), null, null, false));
+            return ValidationResult.failed(file, new ValidationIssue(file, exception.getMessage(), null, null, false));
         } catch (Exception exception) {
             return ValidationResult.failed(
-                    file,
-                    new ValidationIssue(file, "Validation error: " + exception.getMessage(), null, null, false));
+                    file, new ValidationIssue(file, "Validation error: " + exception.getMessage(), null, null, false));
         }
     }
 
     /**
-     * Resolves matching schemas once per file and phase combination so repeated
-     * xml-model entries do
-     * not trigger duplicate validations.
+     * Resolves matching schemas once per file and phase combination so repeated xml-model entries do not trigger
+     * duplicate validations.
      */
     private List<ResolvedSchema> resolveSchemas(List<XmlModelEntry> entries, Path file, SchemaKind schemaKind) {
         List<ResolvedSchema> schemas = new ArrayList<>();
@@ -180,34 +174,35 @@ final class XmlFileValidator {
                 continue;
             }
             int specificity = rule.specificity();
-            if (specificity > bestSpecificity
-                    || (specificity == bestSpecificity && rule.priority() > bestPriority)) {
+            if (specificity > bestSpecificity || (specificity == bestSpecificity && rule.priority() > bestPriority)) {
                 bestRules = new ArrayList<>(List.of(rule));
                 bestSpecificity = specificity;
                 bestPriority = rule.priority();
                 continue;
             }
-            if (specificity == bestSpecificity
-                    && rule.priority() == bestPriority) {
+            if (specificity == bestSpecificity && rule.priority() == bestPriority) {
                 bestRules.add(rule);
             }
         }
         if (bestRules.size() > 1) {
-            throw new IllegalStateException(
-                    "Ambiguous xml-model rules match "
-                            + file
-                            + ". "
-                            + bestRules.size()
-                            + " rules tie at specificity "
-                            + bestSpecificity
-                            + " and priority "
-                            + bestPriority
-                            + ": "
-                            + bestRules.stream()
-                                    .map(rule -> "[" + rule.describe() + "]")
-                                    .collect(Collectors.joining(", ")));
+            throw new IllegalStateException("Ambiguous xml-model rules match "
+                    + file
+                    + ". "
+                    + bestRules.size()
+                    + " rules tie at specificity "
+                    + bestSpecificity
+                    + " and priority "
+                    + bestPriority
+                    + ": "
+                    + bestRules.stream()
+                            .map(rule -> "[" + rule.describe() + "]")
+                            .collect(Collectors.joining(", ")));
         }
-        return bestRules.isEmpty() ? null : bestRules.getFirst();
+        if (bestRules.isEmpty()) {
+            return null;
+        } else {
+            return bestRules.getFirst();
+        }
     }
 
     private List<ValidationIssue> validateSchematron(ResolvedSchemaSource schemaSource, Path xmlFile, String phase)
@@ -220,10 +215,13 @@ final class XmlFileValidator {
         DocumentBuilder builder = processor.newDocumentBuilder();
         builder.setLineNumbering(true);
         XdmNode source = builder.build(xmlFile.toFile());
+        String effectivePhase;
 
-        String effectivePhase = "#ANY".equals(phase)
-                ? schematronCache.selectAnyPhase(preparedSchema, xmlFile)
-                : phase;
+        if ("#ANY".equals(phase)) {
+            effectivePhase = schematronCache.selectAnyPhase(preparedSchema, xmlFile);
+        } else {
+            effectivePhase = phase;
+        }
         XsltExecutable validator = schematronCache.getValidator(preparedSchema, effectivePhase);
         XdmDestination destination = new XdmDestination();
         Xslt30Transformer transformer = validator.load30();
@@ -232,9 +230,8 @@ final class XmlFileValidator {
     }
 
     /**
-     * Converts SchXslt SVRL output into validator issues with the best source
-     * locations Saxon can
-     * recover from the original document.
+     * Converts SchXslt SVRL output into validator issues with the best source locations Saxon can recover from the
+     * original document.
      */
     private List<ValidationIssue> parseSvrl(XdmNode svrl, XdmNode source, Path xmlFile) throws SaxonApiException {
         List<ValidationIssue> issues = new ArrayList<>();
@@ -274,12 +271,17 @@ final class XmlFileValidator {
             return null;
         }
         try {
-            XPathSelector selector = compiledLocationXPath(namespaceBindings, location).load();
+            XPathSelector selector =
+                    compiledLocationXPath(namespaceBindings, location).load();
             selector.setContextItem(source);
             XdmItem item = selector.evaluateSingle();
             if (item instanceof XdmNode node) {
                 int line = node.getUnderlyingNode().getLineNumber();
-                return line > 0 ? line : null;
+                if (line > 0) {
+                    return line;
+                } else {
+                    return null;
+                }
             }
         } catch (SaxonApiException ignored) {
             return null;
@@ -308,13 +310,18 @@ final class XmlFileValidator {
         StringBuilder key = new StringBuilder(location);
         namespaceBindings.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey(Comparator.naturalOrder()))
-                .forEach(entry -> key.append('\n').append(entry.getKey()).append('=').append(entry.getValue()));
+                .forEach(entry ->
+                        key.append('\n').append(entry.getKey()).append('=').append(entry.getValue()));
         return key.toString();
     }
 
     private static String attribute(XdmNode node, String localName) {
         String value = node.getAttributeValue(new QName(localName));
-        return value == null ? "" : value;
+        if (value == null) {
+            return "";
+        } else {
+            return value;
+        }
     }
 
     private static boolean isWarning(XdmNode issueNode) {
@@ -326,15 +333,14 @@ final class XmlFileValidator {
             case "error", "fatal" -> {
                 return false;
             }
-            default -> {
-            }
+            default -> {}
         }
 
         String role = attribute(issueNode, "role").toLowerCase(Locale.ROOT);
         return switch (role) {
             case "info", "warn", "warning", "nonfatal" -> true;
             case "error", "fatal" -> false;
-            default -> issueNode.getNodeName().getLocalName().equals("successful-report");
+            default -> "successful-report".equals(issueNode.getNodeName().getLocalName());
         };
     }
 
@@ -342,9 +348,6 @@ final class XmlFileValidator {
         return locationXPathCache.size();
     }
 
-    /**
-     * Associates a resolved schema file with the xml-model entry that requested it.
-     */
-    private record ResolvedSchema(ResolvedSchemaSource source, XmlModelEntry entry) {
-    }
+    /** Associates a resolved schema file with the xml-model entry that requested it. */
+    private record ResolvedSchema(ResolvedSchemaSource source, XmlModelEntry entry) {}
 }

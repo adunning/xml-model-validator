@@ -1,6 +1,30 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
 import com.thaiopensource.relaxng.translate.Driver;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.HexFormat;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import javax.xml.transform.stream.StreamSource;
 import net.sf.saxon.s9api.Processor;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
@@ -14,34 +38,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
-import javax.xml.XMLConstants;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.transform.OutputKeys;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamSource;
-import javax.xml.transform.stream.StreamResult;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.HexFormat;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-
-/**
- * Caches prepared Schematron schemas and compiled SchXslt validators.
- */
+/** Caches prepared Schematron schemas and compiled SchXslt validators. */
 final class SchematronCache {
     private final Processor processor;
     private static final String SCHXSLT_NS = "http://dmaus.name/ns/2023/schxslt";
@@ -59,10 +56,7 @@ final class SchematronCache {
         this(processor, checkSchematronSchema, SchematronSeverityLevel.INFO);
     }
 
-    SchematronCache(
-            Processor processor,
-            boolean checkSchematronSchema,
-            SchematronSeverityLevel severityThreshold) {
+    SchematronCache(Processor processor, boolean checkSchematronSchema, SchematronSeverityLevel severityThreshold) {
         this.processor = processor;
         this.preparedSchemas = new HashMap<>();
         this.validators = new HashMap<>();
@@ -70,11 +64,7 @@ final class SchematronCache {
         this.remoteSchemaCache = new RemoteSchemaCache();
     }
 
-    /**
-     * Returns a standalone Schematron schema, extracting embedded Schematron rules
-     * from Relax NG when
-     * needed.
-     */
+    /** Returns a standalone Schematron schema, extracting embedded Schematron rules from Relax NG when needed. */
     synchronized Path prepare(ResolvedSchemaSource schemaSource)
             throws IOException, ParserConfigurationException, TransformerException {
         Path normalizedSchemaPath = schemaSource.path().toAbsolutePath().normalize();
@@ -83,8 +73,8 @@ final class SchematronCache {
             return cached.path();
         }
         Files.createDirectories(ValidationSupport.SCHEMATRON_CACHE_DIR);
-        ResolvedSchemaSource schematronSource = prepareSchematronSource(
-                new ResolvedSchemaSource(normalizedSchemaPath, schemaSource.systemId()));
+        ResolvedSchemaSource schematronSource =
+                prepareSchematronSource(new ResolvedSchemaSource(normalizedSchemaPath, schemaSource.systemId()));
         Document document = parseDocument(schematronSource.path());
         if (ValidationSupport.SCHEMATRON_NS.equals(document.getDocumentElement().getNamespaceURI())
                 && "schema".equals(document.getDocumentElement().getLocalName())) {
@@ -151,8 +141,8 @@ final class SchematronCache {
         for (int index = 0; index < includes.getLength(); index += 1) {
             String href = ((Element) includes.item(index)).getAttribute("href");
             if (href != null && !href.isBlank()) {
-                appendSchematronFragments(prepareSchematronSource(resolveRelativeSource(href, schemaSource)),
-                        extractionState);
+                appendSchematronFragments(
+                        prepareSchematronSource(resolveRelativeSource(href, schemaSource)), extractionState);
             }
         }
 
@@ -160,8 +150,8 @@ final class SchematronCache {
         for (int index = 0; index < externalRefs.getLength(); index += 1) {
             String href = ((Element) externalRefs.item(index)).getAttribute("href");
             if (href != null && !href.isBlank()) {
-                appendSchematronFragments(prepareSchematronSource(resolveRelativeSource(href, schemaSource)),
-                        extractionState);
+                appendSchematronFragments(
+                        prepareSchematronSource(resolveRelativeSource(href, schemaSource)), extractionState);
             }
         }
     }
@@ -179,12 +169,7 @@ final class SchematronCache {
         }
 
         Driver driver = new Driver();
-        int exitCode = driver.run(new String[] {
-                "-I", "rnc",
-                "-O", "rng",
-                schemaSource.systemId(),
-                output.toString()
-        });
+        int exitCode = driver.run(new String[] {"-I", "rnc", "-O", "rng", schemaSource.systemId(), output.toString()});
         if (exitCode != 0 || !Files.exists(output)) {
             throw new IOException(
                     "Could not convert RELAX NG Compact Syntax schema to XML syntax: " + schemaSource.systemId());
@@ -216,12 +201,14 @@ final class SchematronCache {
             if ("file".equalsIgnoreCase(resolved.getScheme())) {
                 Path resolvedPath = Path.of(resolved).toAbsolutePath().normalize();
                 if (Files.exists(resolvedPath)) {
-                    return new ResolvedSchemaSource(resolvedPath, resolvedPath.toUri().toString());
+                    return new ResolvedSchemaSource(
+                            resolvedPath, resolvedPath.toUri().toString());
                 }
             }
         }
 
-        Path resolvedPath = baseSource.path().getParent().resolve(effectiveHref).normalize().toAbsolutePath();
+        Path resolvedPath =
+                baseSource.path().getParent().resolve(effectiveHref).normalize().toAbsolutePath();
         if (!Files.exists(resolvedPath)) {
             throw new IOException("Could not resolve included schema reference '" + effectiveHref + "' from "
                     + baseSource.systemId());
@@ -230,14 +217,17 @@ final class SchematronCache {
     }
 
     /**
-     * Compiles and memoizes a SchXslt-generated validator stylesheet for a
-     * prepared schema and effective phase. The phase is baked into the compiled
-     * stylesheet during transpilation; it must not be re-applied at validation
-     * time.
+     * Compiles and memoizes a SchXslt-generated validator stylesheet for a prepared schema and effective phase. The
+     * phase is baked into the compiled stylesheet during transpilation; it must not be re-applied at validation time.
      */
     synchronized XsltExecutable getValidator(Path schemaPath, String phase) throws SaxonApiException {
         Path normalizedSchemaPath = schemaPath.toAbsolutePath().normalize();
-        String normalizedPhase = (phase == null || phase.isBlank()) ? "#DEFAULT" : phase.trim();
+        String normalizedPhase;
+        if (phase == null || phase.isBlank()) {
+            normalizedPhase = "#DEFAULT";
+        } else {
+            normalizedPhase = phase.trim();
+        }
         String cacheKey = normalizedSchemaPath.toString() + "|" + normalizedPhase;
         if (validators.containsKey(cacheKey)) {
             return validators.get(cacheKey);
@@ -250,21 +240,20 @@ final class SchematronCache {
                     Map.of(new QName(SCHXSLT_NS, "phase"), XdmValue.makeValue(normalizedPhase)));
             transformer.applyTemplates(schematron.asSource(), stylesheetDestination);
 
-            XsltExecutable validator = processor.newXsltCompiler()
+            XsltExecutable validator = processor
+                    .newXsltCompiler()
                     .compile(stylesheetDestination.getXdmNode().asSource());
             validators.put(cacheKey, validator);
             return validator;
         } catch (SaxonApiException exception) {
             throw new IllegalArgumentException(
-                    "Invalid Schematron schema " + normalizedSchemaPath + ": " + exception.getMessage(),
-                    exception);
+                    "Invalid Schematron schema " + normalizedSchemaPath + ": " + exception.getMessage(), exception);
         }
     }
 
     /**
-     * Determines the effective phase for a {@code #ANY} phase designator by
-     * running the SchXslt phase-selector against the document. The result is the
-     * phase name to pass to {@link #getValidator}.
+     * Determines the effective phase for a {@code #ANY} phase designator by running the SchXslt phase-selector against
+     * the document. The result is the phase name to pass to {@link #getValidator}.
      */
     synchronized String selectAnyPhase(Path schemaPath, Path documentPath) throws SaxonApiException {
         Path normalizedSchemaPath = schemaPath.toAbsolutePath().normalize();
@@ -277,7 +266,8 @@ final class SchematronCache {
         phaseSelectorGenerator.applyTemplates(schematron.asSource(), phaseSelectorDestination);
 
         XdmDestination phaseDestination = new XdmDestination();
-        Xslt30Transformer phaseSelector = processor.newXsltCompiler()
+        Xslt30Transformer phaseSelector = processor
+                .newXsltCompiler()
                 .compile(phaseSelectorDestination.getXdmNode().asSource())
                 .load30();
         phaseSelector.applyTemplates(documentNode.asSource(), phaseDestination);
@@ -285,19 +275,15 @@ final class SchematronCache {
     }
 
     private static XsltExecutable compileTranspiler(
-            Processor processor,
-            boolean checkSchematronSchema,
-            SchematronSeverityLevel severityThreshold) {
+            Processor processor, boolean checkSchematronSchema, SchematronSeverityLevel severityThreshold) {
         try {
             XsltCompiler compiler = processor.newXsltCompiler();
             compiler.setParameter(
-                    new QName(SCHXSLT_NS, "check-assembled-schema"),
-                    XdmValue.makeValue(checkSchematronSchema));
+                    new QName(SCHXSLT_NS, "check-assembled-schema"), XdmValue.makeValue(checkSchematronSchema));
             compiler.setParameter(
-                    new QName(SCHXSLT_NS, "severity-threshold"),
-                    XdmValue.makeValue(severityThreshold.cliValue()));
-            try (InputStream stream = SchematronCache.class.getClassLoader()
-                    .getResourceAsStream("content/transpile.xsl")) {
+                    new QName(SCHXSLT_NS, "severity-threshold"), XdmValue.makeValue(severityThreshold.cliValue()));
+            try (InputStream stream =
+                    SchematronCache.class.getClassLoader().getResourceAsStream("content/transpile.xsl")) {
                 if (stream == null) {
                     throw new IllegalStateException("Could not find SchXslt2 transpile.xsl on the classpath");
                 }
@@ -314,12 +300,11 @@ final class SchematronCache {
             return;
         }
         String normalized = queryBinding.trim().toLowerCase(Locale.ROOT);
-        if (normalized.equals("xslt") || normalized.equals("xslt2") || normalized.equals("xslt3")) {
+        if ("xslt".equals(normalized) || "xslt2".equals(normalized) || "xslt3".equals(normalized)) {
             return;
         }
-        throw new IOException(
-                "Unsupported Schematron queryBinding '" + queryBinding + "' in " + schemaPath
-                        + ". Supported values are xslt, xslt2, xslt3, or an omitted queryBinding.");
+        throw new IOException("Unsupported Schematron queryBinding '" + queryBinding + "' in " + schemaPath
+                + ". Supported values are xslt, xslt2, xslt3, or an omitted queryBinding.");
     }
 
     private static Document parseDocument(Path path) throws ParserConfigurationException, IOException {
@@ -417,12 +402,10 @@ final class SchematronCache {
 
         Path path();
 
-        record Found(Path path) implements PreparedSchema {
-        }
+        record Found(Path path) implements PreparedSchema {}
 
         final class Missing implements PreparedSchema {
-            private Missing() {
-            }
+            private Missing() {}
 
             @Override
             public Path path() {

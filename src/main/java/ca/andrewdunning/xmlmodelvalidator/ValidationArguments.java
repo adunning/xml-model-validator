@@ -10,9 +10,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * Immutable command-line arguments for the validator application.
- */
+/** Immutable command-line arguments for the validator application. */
 record ValidationArguments(
         Path directory,
         Path filesFrom,
@@ -31,10 +29,9 @@ record ValidationArguments(
     /**
      * Builds normalized runtime arguments from CLI option values.
      *
-     * Explicit file extensions take precedence over inline rule extensions. When
-     * no file extensions are supplied, directory and files-from discovery defaults
-     * to {@code .xml} and also includes an inline rule extension when one is
-     * provided.
+     * <p>Explicit file extensions take precedence over inline rule extensions. When no file extensions are supplied,
+     * directory and files-from discovery defaults to {@code .xml} and also includes an inline rule extension when one
+     * is provided.
      */
     static ValidationArguments fromCli(
             Path directory,
@@ -45,13 +42,19 @@ record ValidationArguments(
             String inlineRuleExtension,
             int jobs,
             boolean failFast) {
-        Path normalizedDirectory = directory == null
-                ? null
-                : ValidationSupport.resolveAgainstWorkspace(directory);
+        Path normalizedDirectory;
+        if (directory == null) {
+            normalizedDirectory = null;
+        } else {
+            normalizedDirectory = ValidationSupport.resolveAgainstWorkspace(directory);
+        }
         Path normalizedFilesFrom = normalizeFilesFrom(filesFrom);
-        Path normalizedConfigFile = configFile == null
-                ? ValidationSupport.DEFAULT_CONFIG_FILE
-                : ValidationSupport.resolveAgainstWorkspace(configFile);
+        Path normalizedConfigFile;
+        if (configFile == null) {
+            normalizedConfigFile = ValidationSupport.DEFAULT_CONFIG_FILE;
+        } else {
+            normalizedConfigFile = ValidationSupport.resolveAgainstWorkspace(configFile);
+        }
 
         List<Path> files = explicitFiles.stream()
                 .map(ValidationSupport::resolveAgainstWorkspace)
@@ -75,8 +78,8 @@ record ValidationArguments(
     }
 
     /**
-     * Resolves the effective set of files to validate from the provided
-     * directory, files-from source, or explicit paths.
+     * Resolves the effective set of files to validate from the provided directory, files-from source, or explicit
+     * paths.
      */
     List<Path> resolveFiles() throws IOException {
         return resolveFiles(System.in);
@@ -97,8 +100,7 @@ record ValidationArguments(
         }
         if (directory != null && explicitFiles.isEmpty()) {
             try (var stream = Files.walk(directory)) {
-                return stream
-                        .filter(path -> Files.isRegularFile(path) && matchesConfiguredExtension(path))
+                return stream.filter(path -> Files.isRegularFile(path) && matchesConfiguredExtension(path))
                         .map(path -> path.toAbsolutePath().normalize())
                         .sorted()
                         .toList();

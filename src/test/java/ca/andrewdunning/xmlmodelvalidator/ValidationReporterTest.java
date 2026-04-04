@@ -1,9 +1,8 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.ResourceLock;
-import org.junit.jupiter.api.parallel.Resources;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -12,10 +11,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
 
 @ResourceLock(Resources.SYSTEM_OUT)
 @ResourceLock(Resources.SYSTEM_ERR)
@@ -25,14 +24,8 @@ final class ValidationReporterTest {
 
     @Test
     void formatsGithubErrorAnnotationWithPreciseLocation() {
-        ValidationIssue issue = new ValidationIssue(
-                Path.of("document.xml"),
-                "Broken <tag>, see details",
-                12,
-                4,
-                12,
-                9,
-                false);
+        ValidationIssue issue =
+                new ValidationIssue(Path.of("document.xml"), "Broken <tag>, see details", 12, 4, 12, 9, false);
 
         String annotation = ValidationReporter.formatGithubAnnotation(issue);
 
@@ -48,14 +41,8 @@ final class ValidationReporterTest {
 
     @Test
     void formatsGithubWarningAnnotationWithNormalizedWhitespace() {
-        ValidationIssue issue = new ValidationIssue(
-                Path.of("nested", "document.xml"),
-                "Line one\nLine two",
-                8,
-                null,
-                10,
-                null,
-                true);
+        ValidationIssue issue =
+                new ValidationIssue(Path.of("nested", "document.xml"), "Line one\nLine two", 8, null, 10, null, true);
 
         String annotation = ValidationReporter.formatGithubAnnotation(issue);
 

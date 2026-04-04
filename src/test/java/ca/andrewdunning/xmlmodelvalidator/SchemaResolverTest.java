@@ -1,11 +1,9 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.function.ThrowingSupplier;
-import org.junit.jupiter.api.io.TempDir;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -13,11 +11,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.function.ThrowingSupplier;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 final class SchemaResolverTest {
@@ -27,9 +26,8 @@ final class SchemaResolverTest {
     @Test
     void resolvesAliasBeforeFilesystemLookup() throws Exception {
         Path aliased = write("schemas/aliased.rng", "<grammar xmlns=\"http://relaxng.org/ns/structure/1.0\"/>");
-        SchemaResolver resolver = new SchemaResolver(
-                Map.of("https://example.com/schema.rng", aliased),
-                new RemoteSchemaCache());
+        SchemaResolver resolver =
+                new SchemaResolver(Map.of("https://example.com/schema.rng", aliased), new RemoteSchemaCache());
 
         Path resolved = resolver.resolve("https://example.com/schema.rng", temporaryDirectory);
 
@@ -43,9 +41,7 @@ final class SchemaResolverTest {
         SchemaResolver resolver = new SchemaResolver(Map.of(), new RemoteSchemaCache());
 
         ResolvedSchemaSource resolved = resolver.resolveRelativeToSystemId(
-                "imported.xsd",
-                parentSchema.toUri().toString(),
-                temporaryDirectory);
+                "imported.xsd", parentSchema.toUri().toString(), temporaryDirectory);
 
         assertEquals(imported.toAbsolutePath().normalize(), resolved.path());
         assertEquals(imported.toUri().toString(), resolved.systemId());
@@ -54,9 +50,7 @@ final class SchemaResolverTest {
     @ParameterizedTest
     @MethodSource("failingResolutionScenarios")
     void reportsContextForResolutionFailures(
-            ThrowingSupplier<Path> resolution,
-            String expectedFragment,
-            String secondaryFragment) {
+            ThrowingSupplier<Path> resolution, String expectedFragment, String secondaryFragment) {
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, resolution::get);
 
         assertAll(
@@ -68,15 +62,15 @@ final class SchemaResolverTest {
         SchemaResolver defaultResolver = new SchemaResolver(Map.of(), new RemoteSchemaCache());
         Path missingAliasTarget = temporaryDirectory.resolve("schemas/missing.rng");
         SchemaResolver aliasResolver = new SchemaResolver(
-                Map.of("https://example.com/schema.rng", missingAliasTarget),
-                new RemoteSchemaCache());
+                Map.of("https://example.com/schema.rng", missingAliasTarget), new RemoteSchemaCache());
         return Stream.of(
                 org.junit.jupiter.params.provider.Arguments.of(
                         (ThrowingSupplier<Path>) () -> defaultResolver.resolve("missing.rng", temporaryDirectory),
                         "missing.rng",
                         "checked"),
                 org.junit.jupiter.params.provider.Arguments.of(
-                        (ThrowingSupplier<Path>) () -> aliasResolver.resolve("https://example.com/schema.rng", temporaryDirectory),
+                        (ThrowingSupplier<Path>)
+                                () -> aliasResolver.resolve("https://example.com/schema.rng", temporaryDirectory),
                         "Schema alias 'https://example.com/schema.rng'",
                         "resolves to a missing file"));
     }

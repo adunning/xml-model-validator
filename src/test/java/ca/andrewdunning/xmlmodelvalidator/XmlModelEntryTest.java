@@ -1,18 +1,14 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
 
 final class XmlModelEntryTest {
     @Test
     void recognizesRelaxNgCompactSyntaxByType() {
-        XmlModelEntry entry = new XmlModelEntry(
-                "schema.bin",
-                "",
-                "application/relax-ng-compact-syntax",
-                "");
+        XmlModelEntry entry = new XmlModelEntry("schema.bin", "", "application/relax-ng-compact-syntax", "");
 
         assertTrue(entry.matches(SchemaKind.RELAX_NG));
         assertTrue(entry.supportsEmbeddedSchematron());
@@ -20,11 +16,7 @@ final class XmlModelEntryTest {
 
     @Test
     void recognizesSchematronByType() {
-        XmlModelEntry entry = new XmlModelEntry(
-                "schema.bin",
-                "",
-                "application/schematron+xml",
-                "");
+        XmlModelEntry entry = new XmlModelEntry("schema.bin", "", "application/schematron+xml", "");
 
         assertTrue(entry.matches(SchemaKind.SCHEMATRON));
     }
@@ -32,10 +24,7 @@ final class XmlModelEntryTest {
     @Test
     void prefersRelaxNgClassificationForCompactSyntaxEvenWithConflictingSchemaNamespace() {
         XmlModelEntry entry = new XmlModelEntry(
-                "schema.rnc",
-                ValidationSupport.SCHEMATRON_NS,
-                "application/relax-ng-compact-syntax",
-                "");
+                "schema.rnc", ValidationSupport.SCHEMATRON_NS, "application/relax-ng-compact-syntax", "");
 
         assertTrue(entry.matches(SchemaKind.RELAX_NG));
         assertFalse(entry.matches(SchemaKind.SCHEMATRON));
@@ -44,11 +33,7 @@ final class XmlModelEntryTest {
 
     @Test
     void recognizesEmbeddedSchematronForRelaxNgXmlSyntax() {
-        XmlModelEntry entry = new XmlModelEntry(
-                "schema.rng",
-                ValidationSupport.RELAXNG_NS,
-                "application/xml",
-                "");
+        XmlModelEntry entry = new XmlModelEntry("schema.rng", ValidationSupport.RELAXNG_NS, "application/xml", "");
 
         assertTrue(entry.supportsEmbeddedSchematron());
     }

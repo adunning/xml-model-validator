@@ -1,16 +1,15 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class ValidationSupportTest {
     @TempDir
@@ -146,9 +145,7 @@ final class ValidationSupportTest {
     void extractsSchemaLocationsFromBothHintForms() {
         assertEquals(
                 java.util.List.of("fallback.xsd", "one.xsd", "two.xsd"),
-                ValidationSupport.extractSchemaLocations(
-                        "fallback.xsd",
-                        "urn:one one.xsd urn:two two.xsd"));
+                ValidationSupport.extractSchemaLocations("fallback.xsd", "urn:one one.xsd urn:two two.xsd"));
     }
 
     @Test

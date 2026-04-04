@@ -1,9 +1,9 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
-import com.sun.net.httpserver.HttpServer;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -11,9 +11,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class SchemaResolutionTest {
     @TempDir
@@ -68,7 +67,8 @@ final class SchemaResolutionTest {
                     <?xml version="1.0"?>
                     <?xml-model href="%s" schematypens="http://relaxng.org/ns/structure/1.0"?>
                     <root/>
-                    """.formatted("http://127.0.0.1:" + server.getAddress().getPort() + "/schema.rng"));
+                    """.formatted(
+                            "http://127.0.0.1:" + server.getAddress().getPort() + "/schema.rng"));
 
             ValidationResult result = new XmlFileValidator(Map.of()).validate(xml);
 
@@ -108,7 +108,8 @@ final class SchemaResolutionTest {
                     <?xml version="1.0"?>
                     <?xml-model href="%s" schematypens="http://relaxng.org/ns/structure/1.0"?>
                     <root/>
-                    """.formatted("http://127.0.0.1:" + server.getAddress().getPort() + "/schemas/main.rnc"));
+                    """.formatted(
+                            "http://127.0.0.1:" + server.getAddress().getPort() + "/schemas/main.rnc"));
 
             ValidationResult result = new XmlFileValidator(Map.of()).validate(xml);
 
@@ -158,12 +159,14 @@ final class SchemaResolutionTest {
                     <?xml version="1.0"?>
                     <?xml-model href="%s" schematypens="http://relaxng.org/ns/structure/1.0"?>
                     <root/>
-                    """.formatted("http://127.0.0.1:" + server.getAddress().getPort() + "/schemas/main.rnc"));
+                    """.formatted(
+                            "http://127.0.0.1:" + server.getAddress().getPort() + "/schemas/main.rnc"));
 
             ValidationResult result = new XmlFileValidator(Map.of()).validate(xml);
 
             assertFalse(result.ok(), "Expected embedded Schematron from remote compact syntax to fail");
-            assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("root must have an id")));
+            assertTrue(
+                    result.issues().stream().anyMatch(issue -> issue.message().contains("root must have an id")));
         } finally {
             server.stop(0);
         }
@@ -183,17 +186,15 @@ final class SchemaResolutionTest {
                 <?xml version="1.0"?>
                 <?xml-model href="%s" schematypens="http://relaxng.org/ns/structure/1.0"?>
                 <root/>
-                """.formatted("http://127.0.0.1:" + server.getAddress().getPort() + "/missing.rng"));
+                """.formatted(
+                            "http://127.0.0.1:" + server.getAddress().getPort() + "/missing.rng"));
 
             ValidationResult result = new XmlFileValidator(Map.of()).validate(xml);
 
             assertFalse(result.ok(), "Expected a remote schema fetch failure");
-            assertTrue(
-                result.issues().stream().anyMatch(issue ->
-                    issue.message().contains("Could not fetch remote schema URL")
-                        || issue.message().contains("HTTP 404")
-                )
-            );
+            assertTrue(result.issues().stream()
+                    .anyMatch(issue -> issue.message().contains("Could not fetch remote schema URL")
+                            || issue.message().contains("HTTP 404")));
         } finally {
             server.stop(0);
         }
@@ -210,8 +211,7 @@ final class SchemaResolutionTest {
                   </pattern>
                 </schema>
                 """);
-        Path xml = write("document.xml",
-                """
+        Path xml = write("document.xml", """
                         <?xml version="1.0"?>
                         <?xml-model href="rules.xml" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?>
                         <root/>

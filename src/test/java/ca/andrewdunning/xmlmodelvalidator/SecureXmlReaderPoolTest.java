@@ -1,10 +1,10 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
-import org.junit.jupiter.api.Test;
-import org.xml.sax.XMLReader;
-
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+
+import org.junit.jupiter.api.Test;
+import org.xml.sax.XMLReader;
 
 final class SecureXmlReaderPoolTest {
     @Test

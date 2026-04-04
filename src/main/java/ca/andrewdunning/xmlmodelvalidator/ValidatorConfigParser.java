@@ -1,10 +1,5 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
-import org.tomlj.Toml;
-import org.tomlj.TomlArray;
-import org.tomlj.TomlParseResult;
-import org.tomlj.TomlTable;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,17 +8,18 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.tomlj.Toml;
+import org.tomlj.TomlArray;
+import org.tomlj.TomlParseResult;
+import org.tomlj.TomlTable;
 
-/**
- * Parses and validates the TOML validator configuration file.
- */
+/** Parses and validates the TOML validator configuration file. */
 final class ValidatorConfigParser {
     private static final Set<String> TOP_LEVEL_KEYS = Set.of("schema_aliases", "xml_model_rules");
     private static final Set<String> RULE_KEYS = Set.of("directory", "extension", "mode", "declarations");
     private static final Set<String> DECLARATION_KEYS = Set.of("href", "schematypens", "type", "phase");
 
-    private ValidatorConfigParser() {
-    }
+    private ValidatorConfigParser() {}
 
     static ValidatorConfig parse(Path configFile) throws IOException {
         if (!Files.exists(configFile)) {
@@ -32,9 +28,8 @@ final class ValidatorConfigParser {
 
         TomlParseResult parsed = Toml.parse(configFile);
         if (parsed.hasErrors()) {
-            String errors = String.join("; ", parsed.errors().stream()
-                    .map(Object::toString)
-                    .toList());
+            String errors = String.join(
+                    "; ", parsed.errors().stream().map(Object::toString).toList());
             throw new IOException("Invalid validator config file " + configFile + ": " + errors);
         }
 
@@ -102,10 +97,7 @@ final class ValidatorConfigParser {
     }
 
     private static void rejectUnknownKeys(
-            Set<String> actualKeys,
-            Set<String> allowedKeys,
-            String context,
-            Path configFile) throws IOException {
+            Set<String> actualKeys, Set<String> allowedKeys, String context, Path configFile) throws IOException {
         List<String> unknownKeys = actualKeys.stream()
                 .filter(key -> !allowedKeys.contains(key))
                 .sorted()
@@ -117,22 +109,17 @@ final class ValidatorConfigParser {
     }
 
     private static String requiredTomlString(
-            TomlTable table,
-            String key,
-            Path configFile,
-            int ruleIndex,
-            int declarationIndex) throws IOException {
+            TomlTable table, String key, Path configFile, int ruleIndex, int declarationIndex) throws IOException {
         String value = table.getString(key);
         if (value == null || value.isBlank()) {
-            throw new IOException(
-                    "Xml-model declaration "
-                            + declarationIndex
-                            + " in rule "
-                            + ruleIndex
-                            + " of "
-                            + configFile
-                            + " must define a non-blank "
-                            + key);
+            throw new IOException("Xml-model declaration "
+                    + declarationIndex
+                    + " in rule "
+                    + ruleIndex
+                    + " of "
+                    + configFile
+                    + " must define a non-blank "
+                    + key);
         }
         return value;
     }

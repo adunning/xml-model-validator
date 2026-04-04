@@ -3,10 +3,7 @@ package ca.andrewdunning.xmlmodelvalidator;
 import java.io.IOException;
 import java.util.Locale;
 
-/**
- * Controls how a configured rule interacts with inline {@code xml-model}
- * processing instructions.
- */
+/** Controls how a configured rule interacts with inline {@code xml-model} processing instructions. */
 enum XmlModelRuleMode {
     FALLBACK,
     REPLACE;

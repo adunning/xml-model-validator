@@ -8,15 +8,12 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HexFormat;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.HexFormat;
 
-/**
- * Downloads remote schemas once and stores them in a stable local cache
- * directory.
- */
+/** Downloads remote schemas once and stores them in a stable local cache directory. */
 final class RemoteSchemaCache {
     private final HttpClient client;
 
@@ -27,9 +24,7 @@ final class RemoteSchemaCache {
                 .build();
     }
 
-    /**
-     * Fetches a remote schema into the cache if it is not already present.
-     */
+    /** Fetches a remote schema into the cache if it is not already present. */
     synchronized Path fetch(String url) throws IOException, InterruptedException {
         Files.createDirectories(ValidationSupport.SCHEMA_DOWNLOAD_CACHE_DIR);
         URI uri = URI.create(url);
@@ -54,8 +49,14 @@ final class RemoteSchemaCache {
     }
 
     private static String cacheFilename(URI uri) {
-        String path = uri.getPath() == null ? "" : uri.getPath();
-        String basename = Path.of(path.isBlank() ? "schema.xml" : path).getFileName().toString();
+        String path;
+        if (uri.getPath() == null) {
+            path = "";
+        } else {
+            path = uri.getPath();
+        }
+        String basename =
+                Path.of(path.isBlank() ? "schema.xml" : path).getFileName().toString();
         return sha256(uri.toString()).substring(0, 16) + "-" + basename;
     }
 

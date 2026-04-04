@@ -1,18 +1,13 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
+import com.thaiopensource.util.PropertyMapBuilder;
 import com.thaiopensource.validate.Schema;
 import com.thaiopensource.validate.SchemaReader;
-import com.thaiopensource.util.PropertyMapBuilder;
 import com.thaiopensource.validate.ValidateProperty;
 import com.thaiopensource.validate.Validator;
 import com.thaiopensource.validate.auto.AutoSchemaReader;
 import com.thaiopensource.validate.rng.CompactSchemaReader;
 import com.thaiopensource.validate.rng.SAXSchemaReader;
-import org.xml.sax.ErrorHandler;
-import org.xml.sax.InputSource;
-import org.xml.sax.SAXParseException;
-import org.xml.sax.XMLReader;
-
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,11 +16,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import org.xml.sax.ErrorHandler;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXParseException;
+import org.xml.sax.XMLReader;
 
-/**
- * Validates documents with Jing and converts its diagnostics into structured
- * issues.
- */
+/** Validates documents with Jing and converts its diagnostics into structured issues. */
 final class JingValidator {
     private static final Pattern LEADING_SEVERITY_PATTERN = Pattern.compile("^(?i)(error|warning):\\s*");
     private static final Pattern QUOTED_TOKEN_PATTERN = Pattern.compile("\"([^\"\\r\\n]+)\"");
@@ -34,17 +30,16 @@ final class JingValidator {
     private final Map<Path, Schema> schemaCache = new HashMap<>();
 
     /**
-     * Runs Jing through its embedded validation API, caching compiled schemas and
-     * creating a fresh validator per document.
+     * Runs Jing through its embedded validation API, caching compiled schemas and creating a fresh validator per
+     * document.
      */
     List<ValidationIssue> validate(Path schema, Path xmlFile) throws Exception {
         return validate(new ResolvedSchemaSource(schema, schema.toUri().toString()), xmlFile);
     }
 
     /**
-     * Runs Jing through its embedded validation API, preserving the schema system
-     * identifier so remote includes in RELAX NG Compact Syntax keep resolving
-     * relative to their source URL.
+     * Runs Jing through its embedded validation API, preserving the schema system identifier so remote includes in
+     * RELAX NG Compact Syntax keep resolving relative to their source URL.
      */
     List<ValidationIssue> validate(ResolvedSchemaSource schema, Path xmlFile) throws Exception {
         Path normalizedSchema = schema.path().toAbsolutePath().normalize();

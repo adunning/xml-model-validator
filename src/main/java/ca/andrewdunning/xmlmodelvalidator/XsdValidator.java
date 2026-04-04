@@ -1,14 +1,5 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
-import org.w3c.dom.ls.LSInput;
-import org.w3c.dom.ls.LSResourceResolver;
-import org.xml.sax.ErrorHandler;
-import org.xml.sax.SAXParseException;
-import javax.xml.XMLConstants;
-import javax.xml.transform.Source;
-import javax.xml.transform.stream.StreamSource;
-import javax.xml.validation.SchemaFactory;
-import javax.xml.validation.Validator;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
@@ -16,11 +7,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import javax.xml.XMLConstants;
+import javax.xml.transform.Source;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.SchemaFactory;
+import javax.xml.validation.Validator;
+import org.w3c.dom.ls.LSInput;
+import org.w3c.dom.ls.LSResourceResolver;
+import org.xml.sax.ErrorHandler;
+import org.xml.sax.SAXParseException;
 
-/**
- * Validates XML files against XML Schema definitions discovered from instance
- * hints.
- */
+/** Validates XML files against XML Schema definitions discovered from instance hints. */
 final class XsdValidator {
     private final SchemaResolver schemaResolver;
 
@@ -28,10 +25,7 @@ final class XsdValidator {
         this.schemaResolver = schemaResolver;
     }
 
-    /**
-     * Validates the document against the provided XSD locations and returns all
-     * reported issues.
-     */
+    /** Validates the document against the provided XSD locations and returns all reported issues. */
     List<ValidationIssue> validate(Path xmlFile, List<String> schemaLocations) throws Exception {
         if (schemaLocations.isEmpty()) {
             return List.of();
@@ -44,8 +38,8 @@ final class XsdValidator {
         try (OpenedSources openedSources = new OpenedSources()) {
             Source[] sources = new Source[schemaLocations.size()];
             for (int index = 0; index < schemaLocations.size(); index += 1) {
-                ResolvedSchemaSource resolved = schemaResolver.resolveSource(schemaLocations.get(index),
-                        xmlFile.getParent());
+                ResolvedSchemaSource resolved =
+                        schemaResolver.resolveSource(schemaLocations.get(index), xmlFile.getParent());
                 StreamSource source = openedSources.open(resolved);
                 sources[index] = source;
             }
@@ -64,10 +58,7 @@ final class XsdValidator {
         }
     }
 
-    /**
-     * Collects recoverable and fatal XSD validation diagnostics into a single issue
-     * list.
-     */
+    /** Collects recoverable and fatal XSD validation diagnostics into a single issue list. */
     private static final class CollectingErrorHandler implements ErrorHandler {
         private final Path xmlFile;
         private final List<ValidationIssue> issues;
@@ -93,8 +84,18 @@ final class XsdValidator {
         }
 
         private ValidationIssue issueFrom(SAXParseException exception, boolean warning) {
-            Integer line = exception.getLineNumber() > 0 ? exception.getLineNumber() : null;
-            Integer column = exception.getColumnNumber() > 0 ? exception.getColumnNumber() : null;
+            Integer line;
+            if (exception.getLineNumber() > 0) {
+                line = exception.getLineNumber();
+            } else {
+                line = null;
+            }
+            Integer column;
+            if (exception.getColumnNumber() > 0) {
+                column = exception.getColumnNumber();
+            } else {
+                column = null;
+            }
             return new ValidationIssue(xmlFile, exception.getMessage(), line, column, warning);
         }
 
@@ -103,10 +104,7 @@ final class XsdValidator {
         }
     }
 
-    /**
-     * Resolves imported XSD resources through the same alias/local/remote logic
-     * used elsewhere in the validator.
-     */
+    /** Resolves imported XSD resources through the same alias/local/remote logic used elsewhere in the validator. */
     private static final class Resolver implements LSResourceResolver {
         private final Path fallbackBaseDirectory;
         private final SchemaResolver schemaResolver;
@@ -118,17 +116,13 @@ final class XsdValidator {
 
         @Override
         public LSInput resolveResource(
-                String type,
-                String namespaceURI,
-                String publicId,
-                String systemId,
-                String baseURI) {
+                String type, String namespaceURI, String publicId, String systemId, String baseURI) {
             if (systemId == null || systemId.isBlank()) {
                 return null;
             }
 
-            ResolvedSchemaSource resolved = schemaResolver.resolveRelativeToSystemId(systemId, baseURI,
-                    fallbackBaseDirectory);
+            ResolvedSchemaSource resolved =
+                    schemaResolver.resolveRelativeToSystemId(systemId, baseURI, fallbackBaseDirectory);
             try {
                 return new Input(resolved);
             } catch (IOException exception) {
@@ -137,9 +131,7 @@ final class XsdValidator {
         }
     }
 
-    /**
-     * Minimal LSInput backed by an already-resolved schema file on disk.
-     */
+    /** Minimal LSInput backed by an already-resolved schema file on disk. */
     private static final class Input implements LSInput {
         private final InputStream byteStream;
         private final String publicId;
@@ -159,8 +151,7 @@ final class XsdValidator {
         }
 
         @Override
-        public void setCharacterStream(Reader characterStream) {
-        }
+        public void setCharacterStream(Reader characterStream) {}
 
         @Override
         public InputStream getByteStream() {
@@ -168,8 +159,7 @@ final class XsdValidator {
         }
 
         @Override
-        public void setByteStream(InputStream byteStream) {
-        }
+        public void setByteStream(InputStream byteStream) {}
 
         @Override
         public String getStringData() {
@@ -177,8 +167,7 @@ final class XsdValidator {
         }
 
         @Override
-        public void setStringData(String stringData) {
-        }
+        public void setStringData(String stringData) {}
 
         @Override
         public String getSystemId() {
@@ -186,8 +175,7 @@ final class XsdValidator {
         }
 
         @Override
-        public void setSystemId(String systemId) {
-        }
+        public void setSystemId(String systemId) {}
 
         @Override
         public String getPublicId() {
@@ -195,8 +183,7 @@ final class XsdValidator {
         }
 
         @Override
-        public void setPublicId(String publicId) {
-        }
+        public void setPublicId(String publicId) {}
 
         @Override
         public String getBaseURI() {
@@ -204,8 +191,7 @@ final class XsdValidator {
         }
 
         @Override
-        public void setBaseURI(String baseURI) {
-        }
+        public void setBaseURI(String baseURI) {}
 
         @Override
         public String getEncoding() {
@@ -213,8 +199,7 @@ final class XsdValidator {
         }
 
         @Override
-        public void setEncoding(String encoding) {
-        }
+        public void setEncoding(String encoding) {}
 
         @Override
         public boolean getCertifiedText() {
@@ -222,14 +207,10 @@ final class XsdValidator {
         }
 
         @Override
-        public void setCertifiedText(boolean certifiedText) {
-        }
+        public void setCertifiedText(boolean certifiedText) {}
     }
 
-    /**
-     * Tracks schema streams so they are closed deterministically after schema
-     * compilation.
-     */
+    /** Tracks schema streams so they are closed deterministically after schema compilation. */
     private static final class OpenedSources implements AutoCloseable {
         private final List<InputStream> streams = new ArrayList<>();
 

@@ -1,17 +1,16 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class XmlDocumentScannerTest {
     @TempDir
@@ -29,7 +28,9 @@ final class XmlDocumentScannerTest {
 
         XmlDocumentScan scan = new XmlDocumentScanner().scan(xml);
 
-        assertEquals(List.of("schema.rng"), scan.xmlModelEntries().stream().map(XmlModelEntry::href).toList());
+        assertEquals(
+                List.of("schema.rng"),
+                scan.xmlModelEntries().stream().map(XmlModelEntry::href).toList());
         assertEquals(List.of("fallback.xsd", "one.xsd", "two.xsd"), scan.schemaLocations());
         assertEquals(null, scan.wellFormednessIssue());
     }
@@ -57,8 +58,11 @@ final class XmlDocumentScannerTest {
         XmlDocumentScan scan = new XmlDocumentScanner().scan(xml);
 
         assertNotNull(scan.wellFormednessIssue());
-        assertTrue(scan.wellFormednessIssue().message().contains("`") || !scan.wellFormednessIssue().message().isBlank());
-        assertEquals(List.of("schema.rng"), scan.xmlModelEntries().stream().map(XmlModelEntry::href).toList());
+        assertTrue(scan.wellFormednessIssue().message().contains("`")
+                || !scan.wellFormednessIssue().message().isBlank());
+        assertEquals(
+                List.of("schema.rng"),
+                scan.xmlModelEntries().stream().map(XmlModelEntry::href).toList());
     }
 
     private Path write(String relativePath, String content) throws IOException {

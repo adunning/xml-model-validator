@@ -6,10 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
-/**
- * Resolves schema references from aliases, local paths, and remote URLs into
- * concrete files on disk.
- */
+/** Resolves schema references from aliases, local paths, and remote URLs into concrete files on disk. */
 final class SchemaResolver {
     private final Map<String, Path> schemaAliases;
     private final RemoteSchemaCache remoteSchemaCache;
@@ -23,10 +20,7 @@ final class SchemaResolver {
         return resolveSource(href, baseDirectory).path();
     }
 
-    /**
-     * Resolves a schema reference against the current document location or
-     * configured aliases.
-     */
+    /** Resolves a schema reference against the current document location or configured aliases. */
     ResolvedSchemaSource resolveSource(String href, Path baseDirectory) {
         ResolvedSchemaSource aliased = resolveAlias(href);
         if (aliased != null) {
@@ -38,21 +32,17 @@ final class SchemaResolver {
 
         Path candidate = baseDirectory.resolve(href).normalize().toAbsolutePath();
         if (!Files.exists(candidate)) {
-            throw new IllegalArgumentException(
-                    "Could not resolve schema reference '"
-                            + href
-                            + "' relative to "
-                            + baseDirectory.toAbsolutePath().normalize()
-                            + "; checked "
-                            + candidate);
+            throw new IllegalArgumentException("Could not resolve schema reference '"
+                    + href
+                    + "' relative to "
+                    + baseDirectory.toAbsolutePath().normalize()
+                    + "; checked "
+                    + candidate);
         }
         return new ResolvedSchemaSource(candidate, candidate.toUri().toString());
     }
 
-    /**
-     * Resolves nested schema imports/includes using the parent schema's system
-     * identifier when one is available.
-     */
+    /** Resolves nested schema imports/includes using the parent schema's system identifier when one is available. */
     ResolvedSchemaSource resolveRelativeToSystemId(String href, String baseSystemId, Path fallbackBaseDirectory) {
         ResolvedSchemaSource aliased = resolveAlias(href);
         if (aliased != null) {
@@ -69,13 +59,12 @@ final class SchemaResolver {
             if ("file".equalsIgnoreCase(resolved.getScheme())) {
                 Path path = Path.of(resolved).toAbsolutePath().normalize();
                 if (!Files.exists(path)) {
-                    throw new IllegalArgumentException(
-                            "Could not resolve schema reference '"
-                                    + href
-                                    + "' from base system identifier "
-                                    + baseSystemId
-                                    + "; checked "
-                                    + path);
+                    throw new IllegalArgumentException("Could not resolve schema reference '"
+                            + href
+                            + "' from base system identifier "
+                            + baseSystemId
+                            + "; checked "
+                            + path);
                 }
                 return new ResolvedSchemaSource(path, path.toUri().toString());
             }
@@ -90,8 +79,7 @@ final class SchemaResolver {
             return null;
         }
         if (!Files.exists(aliased)) {
-            throw new IllegalArgumentException(
-                    "Schema alias '" + href + "' resolves to a missing file: " + aliased);
+            throw new IllegalArgumentException("Schema alias '" + href + "' resolves to a missing file: " + aliased);
         }
         return new ResolvedSchemaSource(aliased, aliased.toUri().toString());
     }
@@ -101,8 +89,7 @@ final class SchemaResolver {
             return new ResolvedSchemaSource(remoteSchemaCache.fetch(href), href);
         } catch (IOException | InterruptedException exception) {
             throw new IllegalArgumentException(
-                    "Could not fetch remote schema URL '" + href + "': " + exception.getMessage(),
-                    exception);
+                    "Could not fetch remote schema URL '" + href + "': " + exception.getMessage(), exception);
         }
     }
 }

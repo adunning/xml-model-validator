@@ -1,7 +1,7 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -9,12 +9,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 final class EntrypointScriptTest {
-    private static final Path ENTRYPOINT = Path.of("entrypoint.sh").toAbsolutePath().normalize();
+    private static final Path ENTRYPOINT =
+            Path.of("entrypoint.sh").toAbsolutePath().normalize();
 
     @TempDir
     Path temporaryDirectory;
@@ -40,13 +40,7 @@ final class EntrypointScriptTest {
 
         assertEquals(0, process.waitFor());
         assertEquals(
-                List.of(
-                        "-jar",
-                        jarPath(environmentRoot).toString(),
-                        "-j",
-                        "0",
-                        "docs/a file.xml",
-                        "nested/b.xml"),
+                List.of("-jar", jarPath(environmentRoot).toString(), "-j", "0", "docs/a file.xml", "nested/b.xml"),
                 Files.readAllLines(capturedArgs, StandardCharsets.UTF_8));
         String output = Files.readString(githubOutput, StandardCharsets.UTF_8);
         assertTrue(output.contains("skipped=false"));
@@ -66,21 +60,11 @@ final class EntrypointScriptTest {
 
         Process process = runEntrypoint(
                 environmentRoot,
-                Map.of(
-                        "XML_MODEL_VALIDATOR_INPUT_FILES_FROM",
-                        "manifest.txt",
-                        "XML_MODEL_VALIDATOR_INPUT_JOBS",
-                        "0"));
+                Map.of("XML_MODEL_VALIDATOR_INPUT_FILES_FROM", "manifest.txt", "XML_MODEL_VALIDATOR_INPUT_JOBS", "0"));
 
         assertEquals(0, process.waitFor());
         assertEquals(
-                List.of(
-                        "-jar",
-                        jarPath(environmentRoot).toString(),
-                        "-j",
-                        "0",
-                        "--files-from",
-                        "manifest.txt"),
+                List.of("-jar", jarPath(environmentRoot).toString(), "-j", "0", "--files-from", "manifest.txt"),
                 Files.readAllLines(capturedArgs, StandardCharsets.UTF_8));
     }
 
@@ -149,9 +133,7 @@ final class EntrypointScriptTest {
     @Test
     void changedFilesOnlyFiltersManifestUsingInlineRuleExtensionWhenFileExtensionsAreOmitted() throws Exception {
         Path capturedArgs = temporaryDirectory.resolve("args.txt");
-        Path environmentRoot = prepareEnvironment(
-                capturedArgs,
-                "changed/one.csl\nchanged/two.xml\nnotes/readme.md\n");
+        Path environmentRoot = prepareEnvironment(capturedArgs, "changed/one.csl\nchanged/two.xml\nnotes/readme.md\n");
 
         Process process = runEntrypoint(
                 environmentRoot,
@@ -255,7 +237,8 @@ final class EntrypointScriptTest {
         assertTrue(stderr.contains("no changed files matched the configured extensions"));
         String markdown = Files.readString(stepSummary, StandardCharsets.UTF_8);
         assertTrue(markdown.contains("## XML Validation"));
-        assertTrue(markdown.contains("Validation was skipped because no changed files matched the configured extensions."));
+        assertTrue(markdown.contains(
+                "Validation was skipped because no changed files matched the configured extensions."));
         String output = Files.readString(temporaryDirectory.resolve("github-output.txt"), StandardCharsets.UTF_8);
         assertTrue(output.contains("skipped=true"));
         assertTrue(output.contains("files_checked=0"));
@@ -292,31 +275,23 @@ final class EntrypointScriptTest {
         Path root = temporaryDirectory.resolve("environment");
         Path bin = root.resolve("bin");
         Files.createDirectories(bin);
-        writeExecutable(
-                bin.resolve("java"),
-                """
+        writeExecutable(bin.resolve("java"), """
                         #!/bin/sh
                         printf '%s\n' "$@" > "${CAPTURE_ARGS}"
                         if [ -n "${XML_MODEL_VALIDATOR_SUMMARY_FILE:-}" ]; then
                           printf '%s\n' '{"summary":{"skipped":false,"filesChecked":2,"okFiles":2,"failedFiles":0,"warningCount":0,"elapsedSeconds":0.25},"results":[]}' > "${XML_MODEL_VALIDATOR_SUMMARY_FILE}"
                         fi
                         """);
-        writeExecutable(
-                bin.resolve("git"),
-                gitOutput == null
-                        ? """
+        writeExecutable(bin.resolve("git"), gitOutput == null ? """
                                 #!/bin/sh
                                 exit 1
-                                """
-                        : """
+                                """ : """
                                 #!/bin/sh
                                 cat <<'EOF'
                                 %s
                                 EOF
                                 """.formatted(gitOutput));
-        writeExecutable(
-                bin.resolve("jq"),
-                """
+        writeExecutable(bin.resolve("jq"), """
                         #!/bin/sh
                         expression="$2"
                         file="$3"
@@ -354,7 +329,9 @@ final class EntrypointScriptTest {
         environment.put("PATH", environmentRoot.resolve("bin") + ":" + environment.getOrDefault("PATH", ""));
         environment.put("HOME", environmentRoot.resolve("home").toString());
         environment.put("RUNNER_TEMP", environmentRoot.resolve("runner-temp").toString());
-        environment.put("XML_MODEL_VALIDATOR_WORKSPACE", environmentRoot.resolve("workspace").toString());
+        environment.put(
+                "XML_MODEL_VALIDATOR_WORKSPACE",
+                environmentRoot.resolve("workspace").toString());
         environment.put("CAPTURE_ARGS", temporaryDirectory.resolve("args.txt").toString());
         environment.putAll(extraEnvironment);
         return builder.start();

@@ -1,12 +1,5 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
-import org.xml.sax.Attributes;
-import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
-import org.xml.sax.SAXParseException;
-import org.xml.sax.XMLReader;
-import org.xml.sax.helpers.DefaultHandler;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -14,10 +7,15 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
+import org.xml.sax.Attributes;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.DefaultHandler;
 
 /**
- * Scans an XML document once to collect xml-model declarations, XSD instance
- * hints, and any well-formedness failure.
+ * Scans an XML document once to collect xml-model declarations, XSD instance hints, and any well-formedness failure.
  */
 final class XmlDocumentScanner {
     private static final String XSI_NS = "http://www.w3.org/2001/XMLSchema-instance";
@@ -42,8 +40,18 @@ final class XmlDocumentScanner {
     }
 
     private static ValidationIssue issueFrom(Path file, SAXParseException exception) {
-        Integer line = exception.getLineNumber() > 0 ? exception.getLineNumber() : null;
-        Integer column = exception.getColumnNumber() > 0 ? exception.getColumnNumber() : null;
+        Integer line;
+        if (exception.getLineNumber() > 0) {
+            line = exception.getLineNumber();
+        } else {
+            line = null;
+        }
+        Integer column;
+        if (exception.getColumnNumber() > 0) {
+            column = exception.getColumnNumber();
+        } else {
+            column = null;
+        }
         return new ValidationIssue(file, formatMessage(exception.getMessage()), line, column, false);
     }
 
@@ -105,8 +113,8 @@ final class XmlDocumentScanner {
         }
 
         private XmlDocumentScan result(ValidationIssue wellFormednessIssue) {
-            return new XmlDocumentScan(file, List.copyOf(xmlModelEntries), List.copyOf(schemaLocations),
-                    wellFormednessIssue);
+            return new XmlDocumentScan(
+                    file, List.copyOf(xmlModelEntries), List.copyOf(schemaLocations), wellFormednessIssue);
         }
     }
 }

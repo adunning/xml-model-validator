@@ -1,12 +1,5 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
-import org.xml.sax.Attributes;
-import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
-import org.xml.sax.SAXParseException;
-import org.xml.sax.XMLReader;
-import org.xml.sax.helpers.DefaultHandler;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -17,20 +10,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.xml.sax.Attributes;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.DefaultHandler;
 
-/**
- * Extracts {@code xml-model} processing instructions from an XML document
- * without fully building a DOM.
- */
+/** Extracts {@code xml-model} processing instructions from an XML document without fully building a DOM. */
 final class XmlModelParser {
     private static final Pattern XML_MODEL_ATTRIBUTE_PATTERN = Pattern.compile("(\\w+)\\s*=\\s*([\"'])(.*?)\\2");
-    private static final Pattern XML_MODEL_WRAPPER_PATTERN = Pattern.compile("^<\\?xml-model\\s+(.*?)\\?>$",
-            Pattern.DOTALL);
+    private static final Pattern XML_MODEL_WRAPPER_PATTERN =
+            Pattern.compile("^<\\?xml-model\\s+(.*?)\\?>$", Pattern.DOTALL);
     private static final SecureXmlReaderPool XML_READERS = new SecureXmlReaderPool();
 
-    /**
-     * Returns xml-model declarations in document order.
-     */
+    /** Returns xml-model declarations in document order. */
     List<XmlModelEntry> parse(Path file) throws IOException {
         List<XmlModelEntry> entries = new ArrayList<>();
         try (InputStream inputStream = Files.newInputStream(file)) {
@@ -56,11 +50,14 @@ final class XmlModelParser {
         }
     }
 
-    /**
-     * Parses one manual {@code xml-model} declaration string into an entry.
-     */
+    /** Parses one manual {@code xml-model} declaration string into an entry. */
     static XmlModelEntry parseDeclaration(String declaration) throws IOException {
-        String normalized = declaration == null ? "" : declaration.trim();
+        String normalized;
+        if (declaration == null) {
+            normalized = "";
+        } else {
+            normalized = declaration.trim();
+        }
         if (normalized.isEmpty()) {
             throw new IOException("Manual xml-model declaration must not be blank");
         }
@@ -76,11 +73,7 @@ final class XmlModelParser {
             throw new IOException("Manual xml-model declaration must include a non-blank href attribute");
         }
 
-        return new XmlModelEntry(
-                href,
-                attributes.get("schematypens"),
-                attributes.get("type"),
-                attributes.get("phase"));
+        return new XmlModelEntry(href, attributes.get("schematypens"), attributes.get("type"), attributes.get("phase"));
     }
 
     private static Map<String, String> parseAttributes(String data) {
@@ -117,6 +110,5 @@ final class XmlModelParser {
         }
     }
 
-    private static final class StopParsingException extends SAXException {
-    }
+    private static final class StopParsingException extends SAXException {}
 }

@@ -1,11 +1,9 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.junit.jupiter.api.parallel.ResourceLock;
-import org.junit.jupiter.api.parallel.Resources;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -14,11 +12,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 @ResourceLock(Resources.SYSTEM_ERR)
 final class XmlModelParserTest {
@@ -45,10 +44,8 @@ final class XmlModelParserTest {
             broken.xml|<root><child></root>|false
             broken-prolog.xml|<?xml-model href="schema.rng"<root/>|true
             """)
-    void handlesMalformedXmlDependingOnWhetherTheRootHasStarted(
-            String filename,
-            String content,
-            boolean shouldFail) throws Exception {
+    void handlesMalformedXmlDependingOnWhetherTheRootHasStarted(String filename, String content, boolean shouldFail)
+            throws Exception {
         Path xml = write(filename, content);
 
         if (shouldFail) {

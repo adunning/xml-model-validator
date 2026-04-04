@@ -1,5 +1,6 @@
 plugins {
     application
+    alias(libs.plugins.spotless)
 }
 
 java {
@@ -18,6 +19,30 @@ repositories {
 
 dependencyLocking {
     lockAllConfigurations()
+}
+
+spotless {
+
+    java {
+        importOrder()
+        removeUnusedImports()
+        forbidWildcardImports()
+        forbidModuleImports()
+        palantirJavaFormat().formatJavadoc(true)
+        formatAnnotations()
+    }
+
+    kotlinGradle {
+        target("*.gradle.kts")
+        ktlint()
+    }
+
+    format("misc") {
+        target("*.gradle", ".gitattributes", "*.md", "*.toml", "*.yml", "*.yaml", ".gitignore")
+        trimTrailingWhitespace()
+        leadingTabsToSpaces()
+        endWithNewline()
+    }
 }
 
 dependencies {
@@ -58,7 +83,7 @@ tasks.named<Jar>("jar") {
                 "Main-Class" to application.mainClass.get(),
                 "Implementation-Title" to project.name,
                 "Implementation-Version" to project.version,
-            )
+            ),
         )
     }
 
@@ -67,7 +92,7 @@ tasks.named<Jar>("jar") {
     from(
         configurations.runtimeClasspath.map { classpath ->
             classpath.map { dep -> if (dep.isDirectory) dep else zipTree(dep) }
-        }
+        },
     )
 
     exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA")

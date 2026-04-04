@@ -12,12 +12,12 @@ import java.util.List;
 /**
  * Serializes validation results to a stable JSON report format.
  *
- * The writer emits RFC 8259-compatible JSON directly so that the CLI does not
- * depend on a general-purpose JSON library for this narrow use case.
+ * <p>The writer emits RFC 8259-compatible JSON directly so that the CLI does not depend on a general-purpose JSON
+ * library for this narrow use case.
  */
 final class JsonValidationReportWriter {
-    String write(List<ValidationResult> results, int filesChecked, int failedFiles, int warningCount,
-            Duration elapsed) {
+    String write(
+            List<ValidationResult> results, int filesChecked, int failedFiles, int warningCount, Duration elapsed) {
         JsonSummary summary = new JsonSummary(
                 false,
                 filesChecked,
@@ -37,10 +37,7 @@ final class JsonValidationReportWriter {
                         issue.endLine(),
                         issue.endColumn()));
             }
-            jsonResults.add(new JsonResult(
-                    ValidationSupport.relativize(result.file()),
-                    result.ok(),
-                    jsonIssues));
+            jsonResults.add(new JsonResult(ValidationSupport.relativize(result.file()), result.ok(), jsonIssues));
         }
         return new JsonOutput().serializeReport(new JsonReport(summary, jsonResults));
     }
@@ -66,9 +63,7 @@ final class JsonValidationReportWriter {
     }
 
     String writeSkippedSummary() {
-        return new JsonOutput().serializeReport(new JsonReport(
-                new JsonSummary(true, 0, 0, 0, 0, 0.0),
-                List.of()));
+        return new JsonOutput().serializeReport(new JsonReport(new JsonSummary(true, 0, 0, 0, 0, 0.0), List.of()));
     }
 
     String writePlan(
@@ -82,38 +77,30 @@ final class JsonValidationReportWriter {
             int schemaAliasCount,
             List<String> rules,
             List<String> files) {
-        return new JsonOutput().serializePlan(new JsonPlan(
-                inputSource,
-                configFile,
-                fileExtensions,
-                jobs,
-                failFast,
-                checkSchematronSchema,
-                schematronSeverityThreshold,
-                schemaAliasCount,
-                rules,
-                files.size(),
-                files));
+        return new JsonOutput()
+                .serializePlan(new JsonPlan(
+                        inputSource,
+                        configFile,
+                        fileExtensions,
+                        jobs,
+                        failFast,
+                        checkSchematronSchema,
+                        schematronSeverityThreshold,
+                        schemaAliasCount,
+                        rules,
+                        files.size(),
+                        files));
     }
 
-    private record JsonReport(JsonSummary summary, List<JsonResult> results) {
-    }
+    private record JsonReport(JsonSummary summary, List<JsonResult> results) {}
 
     private record JsonSummary(
-            boolean skipped,
-            int filesChecked,
-            int okFiles,
-            int failedFiles,
-            int warningCount,
-            double elapsedSeconds) {
-    }
+            boolean skipped, int filesChecked, int okFiles, int failedFiles, int warningCount, double elapsedSeconds) {}
 
-    private record JsonResult(String file, boolean ok, List<JsonIssue> issues) {
-    }
+    private record JsonResult(String file, boolean ok, List<JsonIssue> issues) {}
 
-    private record JsonIssue(String severity, String message, Integer line, Integer column, Integer endLine,
-            Integer endColumn) {
-    }
+    private record JsonIssue(
+            String severity, String message, Integer line, Integer column, Integer endLine, Integer endColumn) {}
 
     private record JsonPlan(
             String inputSource,
@@ -126,13 +113,9 @@ final class JsonValidationReportWriter {
             int schemaAliasCount,
             List<String> rules,
             int fileCount,
-            List<String> files) {
-    }
+            List<String> files) {}
 
-    /**
-     * Emits RFC 8259-compatible JSON for the small fixed report schema used by this
-     * application.
-     */
+    /** Emits RFC 8259-compatible JSON for the small fixed report schema used by this application. */
     private static final class JsonOutput {
         private final StringBuilder json = new StringBuilder();
 

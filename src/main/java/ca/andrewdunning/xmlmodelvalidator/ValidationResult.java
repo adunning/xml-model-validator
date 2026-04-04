@@ -4,9 +4,7 @@ import java.nio.file.Path;
 import java.util.LinkedHashSet;
 import java.util.List;
 
-/**
- * The validation outcome for a single XML file.
- */
+/** The validation outcome for a single XML file. */
 record ValidationResult(Path file, boolean ok, List<ValidationIssue> issues) {
     ValidationResult {
         issues = List.copyOf(new LinkedHashSet<>(issues));

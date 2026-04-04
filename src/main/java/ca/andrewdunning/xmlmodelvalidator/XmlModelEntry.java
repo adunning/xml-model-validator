@@ -2,10 +2,7 @@ package ca.andrewdunning.xmlmodelvalidator;
 
 import java.util.Locale;
 
-/**
- * One {@code xml-model} processing instruction interpreted in the subset of
- * attributes used by the validator.
- */
+/** One {@code xml-model} processing instruction interpreted in the subset of attributes used by the validator. */
 record XmlModelEntry(String href, String schemaTypeNamespace, String type, String phase) {
     XmlModelEntry {
         schemaTypeNamespace = schemaTypeNamespace == null ? "" : schemaTypeNamespace;
@@ -14,8 +11,7 @@ record XmlModelEntry(String href, String schemaTypeNamespace, String type, Strin
     }
 
     /**
-     * Embedded Schematron can be extracted from Relax NG schemas after compact
-     * syntax has been converted to XML syntax.
+     * Embedded Schematron can be extracted from Relax NG schemas after compact syntax has been converted to XML syntax.
      */
     boolean supportsEmbeddedSchematron() {
         return isRelaxNg();

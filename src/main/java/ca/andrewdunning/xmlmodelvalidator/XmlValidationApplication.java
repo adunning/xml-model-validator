@@ -11,24 +11,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Future;
-
 import picocli.CommandLine;
-import picocli.CommandLine.Command;
 import picocli.CommandLine.ArgGroup;
+import picocli.CommandLine.Command;
 import picocli.CommandLine.IVersionProvider;
-import picocli.CommandLine.Option;
-import picocli.CommandLine.Parameters;
-import picocli.CommandLine.ParameterException;
-import picocli.CommandLine.Spec;
 import picocli.CommandLine.Model.CommandSpec;
+import picocli.CommandLine.Option;
+import picocli.CommandLine.ParameterException;
+import picocli.CommandLine.Parameters;
+import picocli.CommandLine.Spec;
 
-/**
- * Command-line entry point for validating XML files in a workspace.
- */
+/** Command-line entry point for validating XML files in a workspace. */
 public final class XmlValidationApplication {
     private final ValidationReporter reporter;
     private final XmlFileValidator validator;
@@ -43,15 +40,15 @@ public final class XmlValidationApplication {
             PrintStream output,
             PrintStream error) {
         boolean githubActions = "true".equalsIgnoreCase(System.getenv("GITHUB_ACTIONS"));
-        OutputFormat effectiveFormat = format == null
-                ? OutputFormat.defaultForEnvironment(githubActions)
-                : format;
+        OutputFormat effectiveFormat;
+        if (format == null) {
+            effectiveFormat = OutputFormat.defaultForEnvironment(githubActions);
+        } else {
+            effectiveFormat = format;
+        }
         this.reporter = new ValidationReporter(effectiveFormat, verbose, output, error);
-        this.validator = new XmlFileValidator(
-                schemaAliases,
-                xmlModelRules,
-                checkSchematronSchema,
-                schematronSeverityThreshold);
+        this.validator =
+                new XmlFileValidator(schemaAliases, xmlModelRules, checkSchematronSchema, schematronSeverityThreshold);
     }
 
     public static void main(String[] args) throws Exception {
@@ -78,15 +75,21 @@ public final class XmlValidationApplication {
         return "xml-model-validator " + version;
     }
 
-    @Command(name = "xml-model-validator", mixinStandardHelpOptions = true, versionProvider = VersionProvider.class, description = "Validate XML files that use xml-model processing instructions.", footerHeading = "%nExamples:%n", footer = {
-            "  xml-model-validator --directory path/to/xml",
-            "  xml-model-validator --plan --directory path/to/xml",
-            "  find path/to/xml -name '*.xml' -print | xml-model-validator --files-from -",
-            "  xml-model-validator --format json path/to/a.xml path/to/b.xml",
-            "  xml-model-validator --directory styles --file-extensions csl --config .xml-validator/config.toml",
-            "",
-            "Exactly one input source is required: --directory, --files-from, or FILES..."
-    })
+    @Command(
+            name = "xml-model-validator",
+            mixinStandardHelpOptions = true,
+            versionProvider = VersionProvider.class,
+            description = "Validate XML files that use xml-model processing instructions.",
+            footerHeading = "%nExamples:%n",
+            footer = {
+                "  xml-model-validator --directory path/to/xml",
+                "  xml-model-validator --plan --directory path/to/xml",
+                "  find path/to/xml -name '*.xml' -print | xml-model-validator --files-from -",
+                "  xml-model-validator --format json path/to/a.xml path/to/b.xml",
+                "  xml-model-validator --directory styles --file-extensions csl --config .xml-validator/config.toml",
+                "",
+                "Exactly one input source is required: --directory, --files-from, or FILES..."
+            })
     private static final class CliCommand implements java.util.concurrent.Callable<Integer> {
         @Spec
         private CommandSpec spec;
@@ -94,17 +97,26 @@ public final class XmlValidationApplication {
         @ArgGroup(exclusive = true, multiplicity = "1", heading = "Input source:%n")
         private InputSourceOptions inputSource;
 
-        @Option(names = "--file-extensions", split = "[,\\s]+", description = "File extensions to discover when scanning directories or file lists; a leading period is optional. Defaults to .xml, and also includes an inline rule extension when one is provided.")
+        @Option(
+                names = "--file-extensions",
+                split = "[,\\s]+",
+                description =
+                        "File extensions to discover when scanning directories or file lists; a leading period is optional. Defaults to .xml, and also includes an inline rule extension when one is provided.")
         private List<String> fileExtensions = new ArrayList<>();
 
-        @Option(names = "--config", description = "Optional path to a TOML validator config file containing schema aliases and xml-model rules")
+        @Option(
+                names = "--config",
+                description =
+                        "Optional path to a TOML validator config file containing schema aliases and xml-model rules")
         private Path configFile;
 
         @ArgGroup(exclusive = false, multiplicity = "0..1", heading = "Inline xml-model rule options:%n")
         private InlineRuleOptions inlineRule;
 
-        @Option(names = { "-j",
-                "--jobs" }, description = "Number of parallel workers to use (0 = auto)", defaultValue = "0")
+        @Option(
+                names = {"-j", "--jobs"},
+                description = "Number of parallel workers to use (0 = auto)",
+                defaultValue = "0")
         private void setJobs(int jobs) {
             if (jobs < 0) {
                 throw new ParameterException(spec.commandLine(), "--jobs must be 0 or greater");
@@ -120,17 +132,24 @@ public final class XmlValidationApplication {
         @Option(names = "--plan", description = "Print the resolved validation plan without running validation")
         private boolean plan;
 
-        @Option(names = "--check-schematron-schema", description = "Run SchXslt assembled-schema checks before validating documents that use Schematron")
+        @Option(
+                names = "--check-schematron-schema",
+                description = "Run SchXslt assembled-schema checks before validating documents that use Schematron")
         private boolean checkSchematronSchema;
 
-        @Option(names = "--schematron-severity-threshold", description = "Skip Schematron assertions with a severity lower than the threshold. One of: INFO, WARNING, ERROR, FATAL.", defaultValue = "INFO")
+        @Option(
+                names = "--schematron-severity-threshold",
+                description =
+                        "Skip Schematron assertions with a severity lower than the threshold. One of: INFO, WARNING, ERROR, FATAL.",
+                defaultValue = "INFO")
         private SchematronSeverityLevel schematronSeverityThreshold = SchematronSeverityLevel.INFO;
 
         @Option(names = "--format", description = "Output format: ${COMPLETION-CANDIDATES}")
         private OutputFormat format;
 
-        @Option(names = { "-v",
-                "--verbose" }, description = "Print progress information and successful validation summaries")
+        @Option(
+                names = {"-v", "--verbose"},
+                description = "Print progress information and successful validation summaries")
         private boolean verbose;
 
         private PrintStream output;
@@ -138,11 +157,24 @@ public final class XmlValidationApplication {
 
         @Override
         public Integer call() throws Exception {
-            Path directory = inputSource == null ? null : inputSource.directory;
-            Path filesFrom = inputSource == null ? null : inputSource.filesFrom;
-            List<Path> explicitFiles = inputSource == null
-                    ? List.of()
-                    : inputSource.explicitFiles;
+            Path directory;
+            if (inputSource == null) {
+                directory = null;
+            } else {
+                directory = inputSource.directory;
+            }
+            Path filesFrom;
+            if (inputSource == null) {
+                filesFrom = null;
+            } else {
+                filesFrom = inputSource.filesFrom;
+            }
+            List<Path> explicitFiles;
+            if (inputSource == null) {
+                explicitFiles = List.of();
+            } else {
+                explicitFiles = inputSource.explicitFiles;
+            }
             ValidationArguments arguments = ValidationArguments.fromCli(
                     directory,
                     filesFrom,
@@ -172,8 +204,7 @@ public final class XmlValidationApplication {
             if (files.isEmpty()) {
                 error.printf(
                         "ERROR: No matching files found to validate for %s with extensions %s.%n",
-                        inputSourceDescription(arguments),
-                        String.join(", ", arguments.fileExtensions()));
+                        inputSourceDescription(arguments), String.join(", ", arguments.fileExtensions()));
                 return 1;
             }
 
@@ -194,15 +225,16 @@ public final class XmlValidationApplication {
                 ValidatorConfig config,
                 List<XmlModelRule> xmlModelRules,
                 List<Path> files) {
-            List<String> normalizedFiles = files.stream()
-                    .map(ValidationSupport::relativize)
-                    .toList();
-            List<String> ruleDescriptions = xmlModelRules.stream()
-                    .map(XmlModelRule::describe)
-                    .toList();
-            OutputFormat effectiveFormat = format == null
-                    ? OutputFormat.TEXT
-                    : format;
+            List<String> normalizedFiles =
+                    files.stream().map(ValidationSupport::relativize).toList();
+            List<String> ruleDescriptions =
+                    xmlModelRules.stream().map(XmlModelRule::describe).toList();
+            OutputFormat effectiveFormat;
+            if (format == null) {
+                effectiveFormat = OutputFormat.TEXT;
+            } else {
+                effectiveFormat = format;
+            }
             if (effectiveFormat == OutputFormat.JSON) {
                 JsonValidationReportWriter writer = new JsonValidationReportWriter();
                 output.println(writer.writePlan(
@@ -256,11 +288,14 @@ public final class XmlValidationApplication {
         }
 
         private static final class InputSourceOptions {
-            @Option(names = { "-d",
-                    "--directory" }, description = "Directory containing matching files to validate recursively")
+            @Option(
+                    names = {"-d", "--directory"},
+                    description = "Directory containing matching files to validate recursively")
             private Path directory;
 
-            @Option(names = "--files-from", description = "Read a newline-delimited file list from PATH, or use - to read from standard input")
+            @Option(
+                    names = "--files-from",
+                    description = "Read a newline-delimited file list from PATH, or use - to read from standard input")
             private Path filesFrom;
 
             @Parameters(arity = "1..*", paramLabel = "FILES", description = "Explicit files to validate")
@@ -268,30 +303,39 @@ public final class XmlValidationApplication {
         }
 
         private static final class InlineRuleOptions {
-            @Option(names = "--rule-mode", description = "Optional inline xml-model rule mode for this run: ${COMPLETION-CANDIDATES}")
+            @Option(
+                    names = "--rule-mode",
+                    description = "Optional inline xml-model rule mode for this run: ${COMPLETION-CANDIDATES}")
             private XmlModelRuleMode mode = XmlModelRuleMode.FALLBACK;
 
             @Option(names = "--rule-directory", description = "Optional directory scope for an inline xml-model rule")
             private Path directory;
 
-            @Option(names = "--rule-extension", description = "Optional file extension scope for an inline xml-model rule; a leading period is optional")
+            @Option(
+                    names = "--rule-extension",
+                    description =
+                            "Optional file extension scope for an inline xml-model rule; a leading period is optional")
             private String extension;
 
-            @Option(names = "--xml-model-declaration", required = true, description = "Inline xml-model declaration to apply for the configured rule; repeat for multiple declarations")
+            @Option(
+                    names = "--xml-model-declaration",
+                    required = true,
+                    description =
+                            "Inline xml-model declaration to apply for the configured rule; repeat for multiple declarations")
             private List<String> declarations = new ArrayList<>();
 
             private XmlModelRule toRule() throws Exception {
-                Path resolvedDirectory = directory == null
-                        ? null
-                        : ValidationSupport.resolveAgainstWorkspace(directory);
+                Path resolvedDirectory;
+                if (directory == null) {
+                    resolvedDirectory = null;
+                } else {
+                    resolvedDirectory = ValidationSupport.resolveAgainstWorkspace(directory);
+                }
                 List<XmlModelEntry> entries = new ArrayList<>();
                 for (String declaration : declarations) {
                     XmlModelEntry parsed = XmlModelParser.parseDeclaration(declaration);
                     entries.add(ValidationSupport.createConfiguredXmlModelEntry(
-                            parsed.href(),
-                            parsed.schemaTypeNamespace(),
-                            parsed.type(),
-                            parsed.phase()));
+                            parsed.href(), parsed.schemaTypeNamespace(), parsed.type(), parsed.phase()));
                 }
                 return new XmlModelRule(resolvedDirectory, extension, mode, entries, 1);
             }
@@ -301,14 +345,17 @@ public final class XmlValidationApplication {
     private static final class VersionProvider implements IVersionProvider {
         @Override
         public String[] getVersion() {
-            return new String[] { versionString() };
+            return new String[] {versionString()};
         }
     }
 
     private int run(ValidationArguments arguments, List<Path> files) throws Exception {
-        int workers = arguments.jobs() > 0
-                ? arguments.jobs()
-                : Math.max(1, Runtime.getRuntime().availableProcessors());
+        int workers;
+        if (arguments.jobs() > 0) {
+            workers = arguments.jobs();
+        } else {
+            workers = Math.max(1, Runtime.getRuntime().availableProcessors());
+        }
         Instant start = Instant.now();
 
         reporter.emitStartup(files, workers, arguments.directoryMode());
@@ -316,10 +363,8 @@ public final class XmlValidationApplication {
         return reporter.emitSummary(results, Duration.between(start, Instant.now()));
     }
 
-    private List<ValidationResult> validateFiles(
-            ValidationArguments arguments,
-            List<Path> files,
-            int workers) throws Exception {
+    private List<ValidationResult> validateFiles(ValidationArguments arguments, List<Path> files, int workers)
+            throws Exception {
         if (arguments.failFast()) {
             return validateWithFailFast(files, workers);
         }
@@ -338,17 +383,15 @@ public final class XmlValidationApplication {
         }
     }
 
-    /**
-     * Executes file validations concurrently while preserving deterministic output
-     * ordering.
-     */
+    /** Executes file validations concurrently while preserving deterministic output ordering. */
     private static final class ValidationExecutor implements AutoCloseable {
         private final ExecutorService executorService;
         private final XmlFileValidator validator;
         private final int workers;
 
         private ValidationExecutor(XmlFileValidator validator, int workers) {
-            this.executorService = Executors.newFixedThreadPool(workers, Thread.ofVirtual().factory());
+            this.executorService =
+                    Executors.newFixedThreadPool(workers, Thread.ofVirtual().factory());
             this.validator = validator;
             this.workers = workers;
         }

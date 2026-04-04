@@ -4,12 +4,9 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 
-/**
- * One configured rule that can supply or replace {@code xml-model}
- * declarations for matching files.
- */
-record XmlModelRule(Path directory, String extension, XmlModelRuleMode mode, List<XmlModelEntry> entries,
-        int priority) {
+/** One configured rule that can supply or replace {@code xml-model} declarations for matching files. */
+record XmlModelRule(
+        Path directory, String extension, XmlModelRuleMode mode, List<XmlModelEntry> entries, int priority) {
     XmlModelRule(Path directory, String extension, XmlModelRuleMode mode, List<XmlModelEntry> entries) {
         this(directory, extension, mode, entries, 0);
     }
@@ -43,8 +40,18 @@ record XmlModelRule(Path directory, String extension, XmlModelRuleMode mode, Lis
     }
 
     String describe() {
-        String directoryDescription = directory == null ? "*" : directory.toString();
-        String extensionDescription = extension.isEmpty() ? "*" : extension;
+        String directoryDescription;
+        if (directory == null) {
+            directoryDescription = "*";
+        } else {
+            directoryDescription = directory.toString();
+        }
+        String extensionDescription;
+        if (extension.isEmpty()) {
+            extensionDescription = "*";
+        } else {
+            extensionDescription = extension;
+        }
         return "directory=" + directoryDescription + ", extension=" + extensionDescription + ", mode="
                 + mode.name().toLowerCase(Locale.ROOT);
     }

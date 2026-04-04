@@ -6,10 +6,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Shared constants and utility methods for workspace, cache, and GitHub Actions
- * integration.
- */
+/** Shared constants and utility methods for workspace, cache, and GitHub Actions integration. */
 final class ValidationSupport {
     static final String RELAXNG_NS = "http://relaxng.org/ns/structure/1.0";
     static final String SCHEMATRON_NS = "http://purl.oclc.org/dsdl/schematron";
@@ -20,8 +17,7 @@ final class ValidationSupport {
     static final Path SCHEMA_DOWNLOAD_CACHE_DIR = CACHE_ROOT.resolve("schema-downloads");
     static final Path DEFAULT_CONFIG_FILE = WORKSPACE_ROOT.resolve(".xml-validator/config.toml");
 
-    private ValidationSupport() {
-    }
+    private ValidationSupport() {}
 
     static String escapeMessage(String value) {
         return value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A");
@@ -50,8 +46,8 @@ final class ValidationSupport {
         return ValidatorConfigParser.parse(configFile);
     }
 
-    static XmlModelEntry createConfiguredXmlModelEntry(String href, String schemaTypeNamespace, String type,
-            String phase) {
+    static XmlModelEntry createConfiguredXmlModelEntry(
+            String href, String schemaTypeNamespace, String type, String phase) {
         return new XmlModelEntry(normalizeConfiguredHref(href), schemaTypeNamespace, type, phase);
     }
 
@@ -104,13 +100,18 @@ final class ValidationSupport {
 
         String home = System.getenv("HOME");
         if (home != null && !home.isBlank()) {
-            Path homeCachePath = Path.of(home, ".cache", "xml-model-validator").toAbsolutePath().normalize();
+            Path homeCachePath = Path.of(home, ".cache", "xml-model-validator")
+                    .toAbsolutePath()
+                    .normalize();
             if (canUseCacheRoot(homeCachePath)) {
                 return homeCachePath;
             }
         }
 
-        return WORKSPACE_ROOT.resolve(".cache/xml-model-validator").toAbsolutePath().normalize();
+        return WORKSPACE_ROOT
+                .resolve(".cache/xml-model-validator")
+                .toAbsolutePath()
+                .normalize();
     }
 
     private static boolean canUseCacheRoot(Path path) {
