@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -103,12 +104,71 @@ final class SchematronCacheTest {
                 """);
         SchematronCache cache = new SchematronCache(new Processor(false));
 
-        XsltExecutable first = cache.getValidator(schema);
-        XsltExecutable second = cache.getValidator(schema);
+        XsltExecutable first = cache.getValidator(schema, null);
+        XsltExecutable second = cache.getValidator(schema, null);
 
         assertNotNull(first);
         assertEquals(first, second);
         assertEquals(1, cache.cachedValidatorCount());
+    }
+
+    @Test
+    void cachesDifferentExecutablesForDifferentPhases() throws Exception {
+        Path schema = write("rules.sch", """
+                <schema xmlns="http://purl.oclc.org/dsdl/schematron" queryBinding="xslt2">
+                  <phase id="strict">
+                    <active pattern="strict-pattern"/>
+                  </phase>
+                  <pattern id="strict-pattern">
+                    <rule context="root">
+                      <assert test="@id">root must have an id</assert>
+                    </rule>
+                  </pattern>
+                </schema>
+                """);
+        SchematronCache cache = new SchematronCache(new Processor(false));
+
+        XsltExecutable defaultValidator = cache.getValidator(schema, null);
+        XsltExecutable strictValidator = cache.getValidator(schema, "strict");
+
+        assertNotNull(defaultValidator);
+        assertNotNull(strictValidator);
+        assertNotEquals(defaultValidator, strictValidator, "Expected different compiled executables per phase");
+        assertEquals(2, cache.cachedValidatorCount());
+    }
+
+    @Test
+    void selectsAnyPhaseFromDocument() throws Exception {
+        // The create-phase-selector mode generates a stylesheet whose template evaluates
+        // each sch:phase/@when expression against the document to pick the first matching
+        // phase, falling back to #ALL when none match.
+        Path schema = write("rules.sch", """
+                <schema xmlns="http://purl.oclc.org/dsdl/schematron" queryBinding="xslt2">
+                  <phase id="strict" when="//root/@mode = 'strict'">
+                    <active pattern="strict-pattern"/>
+                  </phase>
+                  <pattern id="strict-pattern">
+                    <rule context="root">
+                      <assert test="@id">root must have an id</assert>
+                    </rule>
+                  </pattern>
+                </schema>
+                """);
+        Path strictDocument = write("strict.xml", """
+                <?xml version="1.0"?>
+                <root mode="strict"/>
+                """);
+        Path lenientDocument = write("lenient.xml", """
+                <?xml version="1.0"?>
+                <root mode="lenient"/>
+                """);
+        SchematronCache cache = new SchematronCache(new Processor(false));
+
+        String strictPhase = cache.selectAnyPhase(schema, strictDocument);
+        String lenientPhase = cache.selectAnyPhase(schema, lenientDocument);
+
+        assertEquals("strict", strictPhase, "Expected @when condition to select the strict phase");
+        assertEquals("#ALL", lenientPhase, "Expected no matching @when to fall back to #ALL");
     }
 
     private Path write(String filename, String content) throws Exception {

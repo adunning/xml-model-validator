@@ -126,6 +126,42 @@ final class XmlFileValidatorTest {
   }
 
   @Test
+  void honorsAnyPhaseBySelectingPhaseFromDocument() throws Exception {
+    // phase="#ANY" on an xml-model PI means the schema's sch:phase/@when expressions
+    // are evaluated against the document to pick the effective phase dynamically.
+    write("rules.sch", """
+        <schema xmlns="http://purl.oclc.org/dsdl/schematron" queryBinding="xslt2">
+          <phase id="strict" when="//root/@mode = 'strict'">
+            <active pattern="strict-pattern"/>
+          </phase>
+          <pattern id="first-pattern">
+            <rule context="root">
+              <assert test="first">first child required (all phases)</assert>
+            </rule>
+          </pattern>
+          <pattern id="strict-pattern">
+            <rule context="root">
+              <assert test="second">second child required (strict)</assert>
+            </rule>
+          </pattern>
+        </schema>
+        """);
+    Path xml = write("document.xml", """
+        <?xml version="1.0"?>
+        <?xml-model href="rules.sch" schematypens="http://purl.oclc.org/dsdl/schematron" phase="#ANY"?>
+        <root mode="strict"/>
+        """);
+
+    ValidationResult result = validator().validate(xml);
+
+    assertFalse(result.ok(), "Expected #ANY phase validation to fail");
+    assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("second child required")),
+        "Expected the strict-phase assertion to run");
+    assertFalse(result.issues().stream().anyMatch(issue -> issue.message().contains("first child required")),
+        "Expected patterns not in the selected phase to be ignored");
+  }
+
+  @Test
   void honorsSchematronPhaseFromXmlModel() throws Exception {
     write("rules.sch", """
         <schema xmlns="http://purl.oclc.org/dsdl/schematron" queryBinding="xslt2">

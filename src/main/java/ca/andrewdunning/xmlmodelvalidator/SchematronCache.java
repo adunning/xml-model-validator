@@ -3,9 +3,11 @@ package ca.andrewdunning.xmlmodelvalidator;
 import com.thaiopensource.relaxng.translate.Driver;
 import net.sf.saxon.s9api.DocumentBuilder;
 import net.sf.saxon.s9api.Processor;
+import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
 import net.sf.saxon.s9api.XdmDestination;
 import net.sf.saxon.s9api.XdmNode;
+import net.sf.saxon.s9api.XdmValue;
 import net.sf.saxon.s9api.Xslt30Transformer;
 import net.sf.saxon.s9api.XsltCompiler;
 import net.sf.saxon.s9api.XsltExecutable;
@@ -43,8 +45,10 @@ import java.util.Set;
  */
 final class SchematronCache {
     private final Processor processor;
+    private static final String SCHXSLT_NS = "http://dmaus.name/ns/2023/schxslt";
+
     private final Map<Path, PreparedSchema> preparedSchemas;
-    private final Map<Path, XsltExecutable> validators;
+    private final Map<String, XsltExecutable> validators;
     private final XsltExecutable transpiler;
     private final RemoteSchemaCache remoteSchemaCache;
 
@@ -216,24 +220,51 @@ final class SchematronCache {
     }
 
     /**
-     * Compiles and memoizes the SchXslt-generated validator stylesheet for a
-     * prepared schema.
+     * Compiles and memoizes a SchXslt-generated validator stylesheet for a
+     * prepared schema and effective phase. The phase is baked into the compiled
+     * stylesheet during transpilation; it must not be re-applied at validation
+     * time.
      */
-    synchronized XsltExecutable getValidator(Path schemaPath) throws SaxonApiException {
+    synchronized XsltExecutable getValidator(Path schemaPath, String phase) throws SaxonApiException {
         Path normalizedSchemaPath = schemaPath.toAbsolutePath().normalize();
-        if (validators.containsKey(normalizedSchemaPath)) {
-            return validators.get(normalizedSchemaPath);
+        String normalizedPhase = (phase == null || phase.isBlank()) ? "#DEFAULT" : phase.trim();
+        String cacheKey = normalizedSchemaPath.toString() + "|" + normalizedPhase;
+        if (validators.containsKey(cacheKey)) {
+            return validators.get(cacheKey);
         }
-        DocumentBuilder builder = processor.newDocumentBuilder();
-        XdmNode schematron = builder.build(new StreamSource(normalizedSchemaPath.toFile()));
+        XdmNode schematron = processor.newDocumentBuilder().build(new StreamSource(normalizedSchemaPath.toFile()));
         XdmDestination stylesheetDestination = new XdmDestination();
         Xslt30Transformer transformer = transpiler.load30();
-        transformer.transform(schematron.asSource(), stylesheetDestination);
+        transformer.setStylesheetParameters(
+                Map.of(new QName(SCHXSLT_NS, "phase"), XdmValue.makeValue(normalizedPhase)));
+        transformer.applyTemplates(schematron.asSource(), stylesheetDestination);
 
-        XsltCompiler compiler = processor.newXsltCompiler();
-        XsltExecutable validator = compiler.compile(stylesheetDestination.getXdmNode().asSource());
-        validators.put(normalizedSchemaPath, validator);
+        XsltExecutable validator = processor.newXsltCompiler().compile(stylesheetDestination.getXdmNode().asSource());
+        validators.put(cacheKey, validator);
         return validator;
+    }
+
+    /**
+     * Determines the effective phase for a {@code #ANY} phase designator by
+     * running the SchXslt phase-selector against the document. The result is the
+     * phase name to pass to {@link #getValidator}.
+     */
+    synchronized String selectAnyPhase(Path schemaPath, Path documentPath) throws SaxonApiException {
+        Path normalizedSchemaPath = schemaPath.toAbsolutePath().normalize();
+        XdmNode schematron = processor.newDocumentBuilder().build(new StreamSource(normalizedSchemaPath.toFile()));
+        XdmNode documentNode = processor.newDocumentBuilder().build(documentPath.toFile());
+
+        XdmDestination phaseSelectorDestination = new XdmDestination();
+        Xslt30Transformer phaseSelectorGenerator = transpiler.load30();
+        phaseSelectorGenerator.setInitialMode(new QName(SCHXSLT_NS, "create-phase-selector"));
+        phaseSelectorGenerator.applyTemplates(schematron.asSource(), phaseSelectorDestination);
+
+        XdmDestination phaseDestination = new XdmDestination();
+        Xslt30Transformer phaseSelector = processor.newXsltCompiler()
+                .compile(phaseSelectorDestination.getXdmNode().asSource())
+                .load30();
+        phaseSelector.applyTemplates(documentNode.asSource(), phaseDestination);
+        return phaseDestination.getXdmNode().getStringValue();
     }
 
     private static XsltExecutable compileTranspiler(Processor processor) {

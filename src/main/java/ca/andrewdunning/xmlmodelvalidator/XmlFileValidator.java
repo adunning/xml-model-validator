@@ -4,7 +4,6 @@ import net.sf.saxon.s9api.DocumentBuilder;
 import net.sf.saxon.s9api.Processor;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
-import net.sf.saxon.s9api.XdmAtomicValue;
 import net.sf.saxon.s9api.XdmDestination;
 import net.sf.saxon.s9api.XdmItem;
 import net.sf.saxon.s9api.XdmNode;
@@ -202,20 +201,17 @@ final class XmlFileValidator {
             return List.of();
         }
 
-        XsltExecutable validator = schematronCache.getValidator(preparedSchema);
         DocumentBuilder builder = processor.newDocumentBuilder();
         builder.setLineNumbering(true);
         XdmNode source = builder.build(xmlFile.toFile());
 
+        String effectivePhase = "#ANY".equals(phase)
+                ? schematronCache.selectAnyPhase(preparedSchema, xmlFile)
+                : phase;
+        XsltExecutable validator = schematronCache.getValidator(preparedSchema, effectivePhase);
         XdmDestination destination = new XdmDestination();
         Xslt30Transformer transformer = validator.load30();
-        if (phase != null && !phase.isBlank()) {
-            transformer.setStylesheetParameters(
-                    Map.of(
-                            new QName("schxslt", "http://dmaus.name/ns/2023/schxslt", "phase"),
-                            new XdmAtomicValue(phase)));
-        }
-        transformer.transform(source.asSource(), destination);
+        transformer.applyTemplates(source, destination);
         return parseSvrl(destination.getXdmNode(), source, xmlFile);
     }
 
