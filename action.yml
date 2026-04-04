@@ -99,7 +99,6 @@ runs:
       with:
         distribution: temurin
         java-version: "25"
-        overwrite-settings: false
     - name: Set Up Gradle
       if: steps.restore-jar-cache.outputs.cache-hit != 'true'
       uses: gradle/actions/setup-gradle@v6
