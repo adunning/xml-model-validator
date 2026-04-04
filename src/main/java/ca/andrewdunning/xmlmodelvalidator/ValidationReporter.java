@@ -305,7 +305,8 @@ final class ValidationReporter {
         markdown.append("| ")
                 .append(String.join(" | ", headers))
                 .append(" |\n| ");
-        markdown.append(headers.stream().map(ignored -> "---").reduce((left, right) -> left + " | " + right).orElse("---"));
+        markdown.append(
+                headers.stream().map(ignored -> "---").reduce((left, right) -> left + " | " + right).orElse("---"));
         markdown.append(" |\n");
         for (List<String> row : rows) {
             markdown.append("| ")

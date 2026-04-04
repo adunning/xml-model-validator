@@ -18,7 +18,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Validates XML files against XML Schema definitions discovered from instance hints.
+ * Validates XML files against XML Schema definitions discovered from instance
+ * hints.
  */
 final class XsdValidator {
     private final SchemaResolver schemaResolver;
@@ -28,7 +29,8 @@ final class XsdValidator {
     }
 
     /**
-     * Validates the document against the provided XSD locations and returns all reported issues.
+     * Validates the document against the provided XSD locations and returns all
+     * reported issues.
      */
     List<ValidationIssue> validate(Path xmlFile, List<String> schemaLocations) throws Exception {
         if (schemaLocations.isEmpty()) {
@@ -63,7 +65,8 @@ final class XsdValidator {
     }
 
     /**
-     * Collects recoverable and fatal XSD validation diagnostics into a single issue list.
+     * Collects recoverable and fatal XSD validation diagnostics into a single issue
+     * list.
      */
     private static final class CollectingErrorHandler implements ErrorHandler {
         private final Path xmlFile;
@@ -101,8 +104,8 @@ final class XsdValidator {
     }
 
     /**
-     * Resolves imported XSD resources through the same alias/local/remote logic used elsewhere in the
-     * validator.
+     * Resolves imported XSD resources through the same alias/local/remote logic
+     * used elsewhere in the validator.
      */
     private static final class Resolver implements LSResourceResolver {
         private final Path fallbackBaseDirectory;
@@ -224,7 +227,8 @@ final class XsdValidator {
     }
 
     /**
-     * Tracks schema streams so they are closed deterministically after schema compilation.
+     * Tracks schema streams so they are closed deterministically after schema
+     * compilation.
      */
     private static final class OpenedSources implements AutoCloseable {
         private final List<InputStream> streams = new ArrayList<>();

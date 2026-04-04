@@ -8,7 +8,8 @@ import java.util.Locale;
  * One configured rule that can supply or replace {@code xml-model}
  * declarations for matching files.
  */
-record XmlModelRule(Path directory, String extension, XmlModelRuleMode mode, List<XmlModelEntry> entries, int priority) {
+record XmlModelRule(Path directory, String extension, XmlModelRuleMode mode, List<XmlModelEntry> entries,
+        int priority) {
     XmlModelRule(Path directory, String extension, XmlModelRuleMode mode, List<XmlModelEntry> entries) {
         this(directory, extension, mode, entries, 0);
     }
@@ -44,7 +45,8 @@ record XmlModelRule(Path directory, String extension, XmlModelRuleMode mode, Lis
     String describe() {
         String directoryDescription = directory == null ? "*" : directory.toString();
         String extensionDescription = extension.isEmpty() ? "*" : extension;
-        return "directory=" + directoryDescription + ", extension=" + extensionDescription + ", mode=" + mode.name().toLowerCase(Locale.ROOT);
+        return "directory=" + directoryDescription + ", extension=" + extensionDescription + ", mode="
+                + mode.name().toLowerCase(Locale.ROOT);
     }
 
     private static String normalizeExtension(String extension) {

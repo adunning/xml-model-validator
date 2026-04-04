@@ -7,7 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Shared constants and utility methods for workspace, cache, and GitHub Actions integration.
+ * Shared constants and utility methods for workspace, cache, and GitHub Actions
+ * integration.
  */
 final class ValidationSupport {
     static final String RELAXNG_NS = "http://relaxng.org/ns/structure/1.0";
@@ -49,7 +50,8 @@ final class ValidationSupport {
         return ValidatorConfigParser.parse(configFile);
     }
 
-    static XmlModelEntry createConfiguredXmlModelEntry(String href, String schemaTypeNamespace, String type, String phase) {
+    static XmlModelEntry createConfiguredXmlModelEntry(String href, String schemaTypeNamespace, String type,
+            String phase) {
         return new XmlModelEntry(normalizeConfiguredHref(href), schemaTypeNamespace, type, phase);
     }
 

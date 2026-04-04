@@ -7,7 +7,8 @@ import java.nio.file.Path;
 import java.util.Map;
 
 /**
- * Resolves schema references from aliases, local paths, and remote URLs into concrete files on disk.
+ * Resolves schema references from aliases, local paths, and remote URLs into
+ * concrete files on disk.
  */
 final class SchemaResolver {
     private final Map<String, Path> schemaAliases;
@@ -23,7 +24,8 @@ final class SchemaResolver {
     }
 
     /**
-     * Resolves a schema reference against the current document location or configured aliases.
+     * Resolves a schema reference against the current document location or
+     * configured aliases.
      */
     ResolvedSchemaSource resolveSource(String href, Path baseDirectory) {
         ResolvedSchemaSource aliased = resolveAlias(href);
@@ -48,8 +50,8 @@ final class SchemaResolver {
     }
 
     /**
-     * Resolves nested schema imports/includes using the parent schema's system identifier when one is
-     * available.
+     * Resolves nested schema imports/includes using the parent schema's system
+     * identifier when one is available.
      */
     ResolvedSchemaSource resolveRelativeToSystemId(String href, String baseSystemId, Path fallbackBaseDirectory) {
         ResolvedSchemaSource aliased = resolveAlias(href);

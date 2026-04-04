@@ -12,11 +12,12 @@ import java.util.List;
 /**
  * Serializes validation results to a stable JSON report format.
  *
- * <p>The writer emits RFC 8259-compatible JSON directly so that the CLI does not
+ * The writer emits RFC 8259-compatible JSON directly so that the CLI does not
  * depend on a general-purpose JSON library for this narrow use case.
  */
 final class JsonValidationReportWriter {
-    String write(List<ValidationResult> results, int filesChecked, int failedFiles, int warningCount, Duration elapsed) {
+    String write(List<ValidationResult> results, int filesChecked, int failedFiles, int warningCount,
+            Duration elapsed) {
         JsonSummary summary = new JsonSummary(
                 false,
                 filesChecked,
@@ -123,7 +124,8 @@ final class JsonValidationReportWriter {
     }
 
     /**
-     * Emits RFC 8259-compatible JSON for the small fixed report schema used by this application.
+     * Emits RFC 8259-compatible JSON for the small fixed report schema used by this
+     * application.
      */
     private static final class JsonOutput {
         private final StringBuilder json = new StringBuilder();

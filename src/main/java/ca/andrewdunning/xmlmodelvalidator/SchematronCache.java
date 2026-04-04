@@ -57,10 +57,12 @@ final class SchematronCache {
     }
 
     /**
-     * Returns a standalone Schematron schema, extracting embedded Schematron rules from Relax NG when
+     * Returns a standalone Schematron schema, extracting embedded Schematron rules
+     * from Relax NG when
      * needed.
      */
-    synchronized Path prepare(ResolvedSchemaSource schemaSource) throws IOException, ParserConfigurationException, TransformerException {
+    synchronized Path prepare(ResolvedSchemaSource schemaSource)
+            throws IOException, ParserConfigurationException, TransformerException {
         Path normalizedSchemaPath = schemaSource.path().toAbsolutePath().normalize();
         PreparedSchema cached = preparedSchemas.get(normalizedSchemaPath);
         if (cached != null) {
@@ -135,7 +137,8 @@ final class SchematronCache {
         for (int index = 0; index < includes.getLength(); index += 1) {
             String href = ((Element) includes.item(index)).getAttribute("href");
             if (href != null && !href.isBlank()) {
-                appendSchematronFragments(prepareSchematronSource(resolveRelativeSource(href, schemaSource)), extractionState);
+                appendSchematronFragments(prepareSchematronSource(resolveRelativeSource(href, schemaSource)),
+                        extractionState);
             }
         }
 
@@ -143,7 +146,8 @@ final class SchematronCache {
         for (int index = 0; index < externalRefs.getLength(); index += 1) {
             String href = ((Element) externalRefs.item(index)).getAttribute("href");
             if (href != null && !href.isBlank()) {
-                appendSchematronFragments(prepareSchematronSource(resolveRelativeSource(href, schemaSource)), extractionState);
+                appendSchematronFragments(prepareSchematronSource(resolveRelativeSource(href, schemaSource)),
+                        extractionState);
             }
         }
     }
@@ -168,12 +172,14 @@ final class SchematronCache {
                 output.toString()
         });
         if (exitCode != 0 || !Files.exists(output)) {
-            throw new IOException("Could not convert RELAX NG Compact Syntax schema to XML syntax: " + schemaSource.systemId());
+            throw new IOException(
+                    "Could not convert RELAX NG Compact Syntax schema to XML syntax: " + schemaSource.systemId());
         }
         return new ResolvedSchemaSource(output, schemaSource.systemId());
     }
 
-    private ResolvedSchemaSource resolveRelativeSource(String href, ResolvedSchemaSource baseSource) throws IOException {
+    private ResolvedSchemaSource resolveRelativeSource(String href, ResolvedSchemaSource baseSource)
+            throws IOException {
         String effectiveHref = href;
         String baseSystemId = baseSource.systemId();
         if (baseSystemId != null
@@ -203,13 +209,15 @@ final class SchematronCache {
 
         Path resolvedPath = baseSource.path().getParent().resolve(effectiveHref).normalize().toAbsolutePath();
         if (!Files.exists(resolvedPath)) {
-            throw new IOException("Could not resolve included schema reference '" + effectiveHref + "' from " + baseSource.systemId());
+            throw new IOException("Could not resolve included schema reference '" + effectiveHref + "' from "
+                    + baseSource.systemId());
         }
         return new ResolvedSchemaSource(resolvedPath, resolvedPath.toUri().toString());
     }
 
     /**
-     * Compiles and memoizes the SchXslt-generated validator stylesheet for a prepared schema.
+     * Compiles and memoizes the SchXslt-generated validator stylesheet for a
+     * prepared schema.
      */
     synchronized XsltExecutable getValidator(Path schemaPath) throws SaxonApiException {
         Path normalizedSchemaPath = schemaPath.toAbsolutePath().normalize();

@@ -22,15 +22,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
  * Validates a single XML file by applying supported {@code xml-model}
- * declarations first and falling
- * back to XML Schema instance hints when no supported model is present.
+ * declarations first and falling back to XML Schema instance hints when no
+ * supported model is present.
  */
 final class XmlFileValidator {
     private final Processor processor;
@@ -196,7 +195,8 @@ final class XmlFileValidator {
         return bestRules.isEmpty() ? null : bestRules.getFirst();
     }
 
-    private List<ValidationIssue> validateSchematron(ResolvedSchemaSource schemaSource, Path xmlFile, String phase) throws Exception {
+    private List<ValidationIssue> validateSchematron(ResolvedSchemaSource schemaSource, Path xmlFile, String phase)
+            throws Exception {
         Path preparedSchema = schematronCache.prepare(schemaSource);
         if (preparedSchema == null) {
             return List.of();

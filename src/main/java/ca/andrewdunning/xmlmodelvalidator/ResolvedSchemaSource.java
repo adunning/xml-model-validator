@@ -7,8 +7,8 @@ import java.nio.file.Path;
 import javax.xml.transform.stream.StreamSource;
 
 /**
- * Represents a schema file together with the system identifier that should be exposed to downstream
- * XML tooling.
+ * Represents a schema file together with the system identifier that should be
+ * exposed to downstream XML tooling.
  */
 record ResolvedSchemaSource(Path path, String systemId) {
     StreamSource openStreamSource() throws java.io.IOException {

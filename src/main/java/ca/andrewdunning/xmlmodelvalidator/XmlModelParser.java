@@ -24,7 +24,8 @@ import java.util.regex.Pattern;
  */
 final class XmlModelParser {
     private static final Pattern XML_MODEL_ATTRIBUTE_PATTERN = Pattern.compile("(\\w+)\\s*=\\s*([\"'])(.*?)\\2");
-    private static final Pattern XML_MODEL_WRAPPER_PATTERN = Pattern.compile("^<\\?xml-model\\s+(.*?)\\?>$", Pattern.DOTALL);
+    private static final Pattern XML_MODEL_WRAPPER_PATTERN = Pattern.compile("^<\\?xml-model\\s+(.*?)\\?>$",
+            Pattern.DOTALL);
     private static final SecureXmlReaderPool XML_READERS = new SecureXmlReaderPool();
 
     /**

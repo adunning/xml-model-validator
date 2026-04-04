@@ -105,7 +105,8 @@ final class XmlDocumentScanner {
         }
 
         private XmlDocumentScan result(ValidationIssue wellFormednessIssue) {
-            return new XmlDocumentScan(file, List.copyOf(xmlModelEntries), List.copyOf(schemaLocations), wellFormednessIssue);
+            return new XmlDocumentScan(file, List.copyOf(xmlModelEntries), List.copyOf(schemaLocations),
+                    wellFormednessIssue);
         }
     }
 }

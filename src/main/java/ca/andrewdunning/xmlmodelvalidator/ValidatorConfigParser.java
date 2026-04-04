@@ -75,13 +75,15 @@ final class ValidatorConfigParser {
             XmlModelRuleMode mode = XmlModelRuleMode.parse(ruleTable.getString("mode"));
             TomlArray declarationsArray = ruleTable.getArray("declarations");
             if (declarationsArray == null || declarationsArray.isEmpty()) {
-                throw new IOException("Xml-model rule at index " + index + " in " + configFile + " must declare at least one entry");
+                throw new IOException(
+                        "Xml-model rule at index " + index + " in " + configFile + " must declare at least one entry");
             }
             List<XmlModelEntry> entries = new ArrayList<>();
             for (int declarationIndex = 0; declarationIndex < declarationsArray.size(); declarationIndex += 1) {
                 TomlTable declaration = declarationsArray.getTable(declarationIndex);
                 if (declaration == null) {
-                    throw new IOException("Invalid declaration at index " + declarationIndex + " in xml-model rule " + index + " of " + configFile);
+                    throw new IOException("Invalid declaration at index " + declarationIndex + " in xml-model rule "
+                            + index + " of " + configFile);
                 }
                 rejectUnknownKeys(
                         declaration.keySet(),

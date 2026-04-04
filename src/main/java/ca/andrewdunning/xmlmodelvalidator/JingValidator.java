@@ -23,7 +23,8 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
- * Validates documents with Jing and converts its diagnostics into structured issues.
+ * Validates documents with Jing and converts its diagnostics into structured
+ * issues.
  */
 final class JingValidator {
     private static final Pattern LEADING_SEVERITY_PATTERN = Pattern.compile("^(?i)(error|warning):\\s*");
@@ -41,8 +42,9 @@ final class JingValidator {
     }
 
     /**
-     * Runs Jing through its embedded validation API, preserving the schema system identifier so remote
-     * includes in RELAX NG Compact Syntax keep resolving relative to their source URL.
+     * Runs Jing through its embedded validation API, preserving the schema system
+     * identifier so remote includes in RELAX NG Compact Syntax keep resolving
+     * relative to their source URL.
      */
     List<ValidationIssue> validate(ResolvedSchemaSource schema, Path xmlFile) throws Exception {
         Path normalizedSchema = schema.path().toAbsolutePath().normalize();
@@ -60,7 +62,8 @@ final class JingValidator {
         return errorHandler.finish(null);
     }
 
-    private synchronized Schema loadSchema(ResolvedSchemaSource schemaSource, ErrorHandler errorHandler) throws Exception {
+    private synchronized Schema loadSchema(ResolvedSchemaSource schemaSource, ErrorHandler errorHandler)
+            throws Exception {
         Path schemaPath = schemaSource.path();
         Schema cached = schemaCache.get(schemaPath);
         if (cached != null) {
@@ -80,8 +83,8 @@ final class JingValidator {
     private static SchemaReader schemaReaderFor(Path schemaPath) {
         String filename = schemaPath.getFileName().toString().toLowerCase(java.util.Locale.ROOT);
         return switch (filename) {
-            case String ignored when filename.endsWith(".rnc") -> CompactSchemaReader.getInstance();
-            case String ignored when filename.endsWith(".rng") -> SAXSchemaReader.getInstance();
+            case String _ when filename.endsWith(".rnc") -> CompactSchemaReader.getInstance();
+            case String _ when filename.endsWith(".rng") -> SAXSchemaReader.getInstance();
             default -> new AutoSchemaReader();
         };
     }

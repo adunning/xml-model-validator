@@ -14,7 +14,8 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 
 /**
- * Downloads remote schemas once and stores them in a stable local cache directory.
+ * Downloads remote schemas once and stores them in a stable local cache
+ * directory.
  */
 final class RemoteSchemaCache {
     private final HttpClient client;
