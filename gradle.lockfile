@@ -3,7 +3,7 @@
 # This file is expected to be part of source control.
 info.picocli:picocli:4.7.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 isorelax:isorelax:20030108=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-name.dmaus.schxslt:schxslt2:1.9=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+name.dmaus.schxslt:schxslt2:1.10.1=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 net.sf.saxon:Saxon-HE:12.9=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.antlr:antlr4-runtime:4.11.1=runtimeClasspath,testRuntimeClasspath
 org.apiguardian:apiguardian-api:1.1.2=testCompileClasspath
