@@ -1,7 +1,6 @@
 package ca.andrewdunning.xmlmodelvalidator;
 
 import com.thaiopensource.relaxng.translate.Driver;
-import net.sf.saxon.s9api.DocumentBuilder;
 import net.sf.saxon.s9api.Processor;
 import net.sf.saxon.s9api.QName;
 import net.sf.saxon.s9api.SaxonApiException;
