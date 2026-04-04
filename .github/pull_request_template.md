@@ -6,4 +6,4 @@ Closes #
 
 - [ ] Tests added or updated for any behavioural change
 - [ ] README or Action metadata updated if user-facing behaviour changed
-- [ ] `gradle check` passes locally
+- [ ] `./gradlew check` passes locally

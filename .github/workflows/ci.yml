@@ -25,7 +25,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
 
       - name: Verify
-        run: gradle check
+        run: ./gradlew check
 
   action-integration:
     runs-on: ubuntu-latest

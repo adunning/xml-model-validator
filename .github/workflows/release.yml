@@ -41,7 +41,7 @@ jobs:
 
           release_version="${tag#v}"
 
-          project_version="$(gradle -q printVersion)"
+          project_version="$(./gradlew -q printVersion)"
           cff_version="$(sed -n 's|^[[:space:]]*version:[[:space:]]*"\([^"]*\)"[[:space:]]*$|\1|p' CITATION.cff | head -n1)"
 
           if [[ -z "${project_version}" || -z "${cff_version}" ]]; then
@@ -61,7 +61,7 @@ jobs:
           echo "Release tag, Gradle metadata, and CITATION.cff versions are synchronized: ${release_version}"
 
       - name: Build and Verify
-        run: gradle check jar
+        run: ./gradlew check jar
 
       - name: Validate Jar Version Output
         shell: bash

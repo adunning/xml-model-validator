@@ -538,7 +538,7 @@ which normally means using `actions/checkout@v6` earlier in the job.
 Build the runnable jar:
 
 ```bash
-gradle -q jar -x test
+./gradlew -q jar -x test
 ```
 
 ## CLI

@@ -6,7 +6,7 @@ Run the full verification suite before opening a pull request or cutting a
 release:
 
 ```bash
-gradle check
+./gradlew check
 ```
 
 ## Pull requests
@@ -37,7 +37,7 @@ gradle check
 3. Run the full verification suite locally:
 
 ```bash
-gradle check
+./gradlew check
 ```
 
 4. Tag and push a strict SemVer tag in the form `vX.Y.Z`:

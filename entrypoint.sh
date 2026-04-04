@@ -19,7 +19,7 @@ mkdir -p \
 
 build_validator_jar() {
   echo "XML Model Validator: building from source..." >&2
-  (cd "${ACTION_ROOT}" && gradle -q jar -x test)
+  (cd "${ACTION_ROOT}" && ./gradlew -q jar -x test)
   cp "${ACTION_ROOT}/build/libs/xml-model-validator.jar" "${JAR_PATH}"
 }
 
