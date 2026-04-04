@@ -74,11 +74,11 @@ public final class XmlValidationApplication {
             description = "Validate XML files that use xml-model processing instructions.",
             footerHeading = "%nExamples:%n",
             footer = {
-                "  xml-model-validator --directory path/to/xml",
-                "  xml-model-validator --plan --directory path/to/xml",
-                "  find path/to/xml -name '*.xml' -print | xml-model-validator --files-from -",
-                "  xml-model-validator --format json path/to/a.xml path/to/b.xml",
-                "  xml-model-validator --directory styles --file-extensions csl --config .xml-validator/config.toml",
+                "  ${COMMAND-FULL-NAME} --directory path/to/xml",
+                "  ${COMMAND-FULL-NAME} --plan --directory path/to/xml",
+                "  find path/to/xml -name '*.xml' -print | ${COMMAND-FULL-NAME} --files-from -",
+                "  ${COMMAND-FULL-NAME} --format json path/to/a.xml path/to/b.xml",
+                "  ${COMMAND-FULL-NAME} --directory styles --file-extensions csl --config .xml-validator/config.toml",
                 "",
                 "Exactly one input source is required: --directory, --files-from, or FILES..."
             })
