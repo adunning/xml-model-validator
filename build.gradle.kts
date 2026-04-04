@@ -12,6 +12,10 @@ application {
     mainClass = "ca.andrewdunning.xmlmodelvalidator.XmlValidationApplication"
 }
 
+repositories {
+    mavenCentral()
+}
+
 dependencyLocking {
     lockAllConfigurations()
 }
@@ -72,7 +76,8 @@ tasks.named<Jar>("jar") {
 tasks.register("printVersion") {
     group = "help"
     description = "Prints the project version for release scripts."
+    val currentVersion = project.version.toString()
     doLast {
-        println(project.version)
+        println(currentVersion)
     }
 }
