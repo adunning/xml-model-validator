@@ -67,14 +67,6 @@ public final class XmlValidationApplication {
         return commandLine.execute(args);
     }
 
-    private static String versionString() {
-        String version = XmlValidationApplication.class.getPackage().getImplementationVersion();
-        if (version == null || version.isBlank()) {
-            version = "dev";
-        }
-        return "xml-model-validator " + version;
-    }
-
     @Command(
             name = "xml-model-validator",
             mixinStandardHelpOptions = true,
@@ -343,9 +335,16 @@ public final class XmlValidationApplication {
     }
 
     private static final class VersionProvider implements IVersionProvider {
+        @Spec
+        private CommandLine.Model.CommandSpec spec;
+
         @Override
         public String[] getVersion() {
-            return new String[] {versionString()};
+            String version = XmlValidationApplication.class.getPackage().getImplementationVersion();
+            if (version == null || version.isBlank()) {
+                version = "dev";
+            }
+            return new String[] {spec.name() + " " + version};
         }
     }
 
