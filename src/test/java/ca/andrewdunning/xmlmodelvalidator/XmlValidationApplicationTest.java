@@ -603,6 +603,8 @@ final class XmlValidationApplicationTest {
                         exitCode = XmlValidationApplication.execute(
                                         new String[] {
                                                         "--check-schematron-schema",
+                                                        "--format",
+                                                        "text",
                                                         temporaryDirectory.resolve("document.xml").toString()
                                         },
                                         new PrintStream(stdoutBuffer, true, StandardCharsets.UTF_8),
