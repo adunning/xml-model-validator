@@ -80,7 +80,7 @@ Save one of these workflows as `.github/workflows/validate-xml.yml`. If your def
 
 #### Validate all XML files on pull requests and pushes
 
-This is a simple configation suitable for repositories with a small number of XML files (in the hundreds rather than thousands) or those that want to validate everything on every run.
+This is a simple configuration suitable for repositories with a small number of XML files (in the hundreds rather than thousands) or those that want to validate everything on every run.
 
 ```yaml
 name: Validate XML
@@ -110,7 +110,7 @@ jobs:
 
 #### Validate changed XML on pull requests and pushes, with a weekly full check
 
-In a larger and frequently changing repository, a workflow that validates only the modified XML files reduce the validation time for pull requests and pushes. In the below example, a scheduled run validates the full repository once a week to catch any drift.
+In a larger and frequently changing repository, a workflow that validates only modified XML files reduces validation time for pull requests and pushes. In the example below, a scheduled run validates the full repository once a week to catch any drift.
 
 If your default branch is not `main`, replace that value with your repository's default branch name.
 
@@ -159,7 +159,7 @@ or remove it so schema-only changes also trigger validation.
 Version tag semantics:
 
 - `@v2` is a floating major tag that tracks the latest `2.x.y` release.
-- `@v2.1.0` is an immutable exact release tag.
+- `@v2.2.0` is an immutable exact release tag.
 - This repository publishes releases from `vX.Y.Z` tags and then updates the
   matching major tag (`vX`) automatically.
 
@@ -512,21 +512,17 @@ can theoretically reference.
 The GitHub Action sets up Java internally and runs the validator with
 `java -jar`.
 
-When the action is running from a published release ref such as `@v2` or
-`@v2.1.0`, the composite action first resolves the exact release tag from Gradle
-project metadata. On a cold runner it then queries the GitHub Releases API for
-the matching release assets, downloads the published jar, and verifies it
-against the published checksum before use. For branch refs and other unreleased
-revisions, or if the release lookup or asset download fails, the action falls
-back to building the runnable jar from source.
+On a cold runner, the composite action first attempts to download
+`xml-model-validator.jar` from the GitHub Release that matches the action ref
+(for example, `@v2` or `@v2.2.0`). If the release asset is not available, it
+falls back to building the runnable jar from source.
 
 The built jar is cached under `~/.cache/xml-model-validator/jar`, and its cache
-key is derived from the action's build inputs so a cached binary is only reused
-when the jar-producing contents match.
+key is derived from the runner OS and action ref.
 
-The action also caches Gradle's dependency and wrapper directories under
-`~/.gradle`, keyed from Gradle dependency inputs so dependency downloads are reused
-until those inputs change.
+When a jar cache miss triggers a source build, the action runs
+`gradle/actions/setup-gradle`, which restores and saves Gradle User Home state
+(`~/.gradle`) using its default cache strategy.
 
 Remote schema downloads and prepared Schematron artifacts are cached under
 `~/.cache/xml-model-validator/schema-downloads` and
@@ -645,7 +641,7 @@ java -jar build/libs/xml-model-validator.jar --plan --format json --directory pa
 Verify a published release artifact:
 
 ```bash
-VERSION=v2.1.0 # replace with the release tag you want to verify
+VERSION=v2.2.0 # replace with the release tag you want to verify
 curl -LO "https://github.com/adunning/xml-model-validator/releases/download/${VERSION}/xml-model-validator.jar"
 curl -LO "https://github.com/adunning/xml-model-validator/releases/download/${VERSION}/xml-model-validator.jar.sha256"
 shasum -a 256 -c xml-model-validator.jar.sha256
