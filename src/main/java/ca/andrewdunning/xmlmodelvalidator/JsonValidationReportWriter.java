@@ -77,6 +77,7 @@ final class JsonValidationReportWriter {
             List<String> fileExtensions,
             int jobs,
             boolean failFast,
+            boolean checkSchematronSchema,
             int schemaAliasCount,
             List<String> rules,
             List<String> files) {
@@ -86,6 +87,7 @@ final class JsonValidationReportWriter {
                 fileExtensions,
                 jobs,
                 failFast,
+                checkSchematronSchema,
                 schemaAliasCount,
                 rules,
                 files.size(),
@@ -117,6 +119,7 @@ final class JsonValidationReportWriter {
             List<String> fileExtensions,
             int jobs,
             boolean failFast,
+            boolean checkSchematronSchema,
             int schemaAliasCount,
             List<String> rules,
             int fileCount,
@@ -152,6 +155,8 @@ final class JsonValidationReportWriter {
             numberField("jobs", plan.jobs());
             separator();
             booleanField("failFast", plan.failFast());
+            separator();
+            booleanField("checkSchematronSchema", plan.checkSchematronSchema());
             separator();
             numberField("schemaAliasCount", plan.schemaAliasCount());
             separator();

@@ -36,6 +36,7 @@ public final class XmlValidationApplication {
     private XmlValidationApplication(
             Map<String, Path> schemaAliases,
             List<XmlModelRule> xmlModelRules,
+            boolean checkSchematronSchema,
             boolean verbose,
             OutputFormat format,
             PrintStream output,
@@ -45,7 +46,7 @@ public final class XmlValidationApplication {
                 ? OutputFormat.defaultForEnvironment(githubActions)
                 : format;
         this.reporter = new ValidationReporter(effectiveFormat, verbose, output, error);
-        this.validator = new XmlFileValidator(schemaAliases, xmlModelRules);
+        this.validator = new XmlFileValidator(schemaAliases, xmlModelRules, checkSchematronSchema);
     }
 
     public static void main(String[] args) throws Exception {
@@ -72,21 +73,15 @@ public final class XmlValidationApplication {
         return "xml-model-validator " + version;
     }
 
-    @Command(
-            name = "xml-model-validator",
-            mixinStandardHelpOptions = true,
-            versionProvider = VersionProvider.class,
-            description = "Validate XML files that use xml-model processing instructions.",
-            footerHeading = "%nExamples:%n",
-            footer = {
-                    "  xml-model-validator --directory path/to/xml",
-                    "  xml-model-validator --plan --directory path/to/xml",
-                    "  find path/to/xml -name '*.xml' -print | xml-model-validator --files-from -",
-                    "  xml-model-validator --format json path/to/a.xml path/to/b.xml",
-                    "  xml-model-validator --directory styles --file-extensions csl --config .xml-validator/config.toml",
-                    "",
-                    "Exactly one input source is required: --directory, --files-from, or FILES..."
-            })
+    @Command(name = "xml-model-validator", mixinStandardHelpOptions = true, versionProvider = VersionProvider.class, description = "Validate XML files that use xml-model processing instructions.", footerHeading = "%nExamples:%n", footer = {
+            "  xml-model-validator --directory path/to/xml",
+            "  xml-model-validator --plan --directory path/to/xml",
+            "  find path/to/xml -name '*.xml' -print | xml-model-validator --files-from -",
+            "  xml-model-validator --format json path/to/a.xml path/to/b.xml",
+            "  xml-model-validator --directory styles --file-extensions csl --config .xml-validator/config.toml",
+            "",
+            "Exactly one input source is required: --directory, --files-from, or FILES..."
+    })
     private static final class CliCommand implements java.util.concurrent.Callable<Integer> {
         @Spec
         private CommandSpec spec;
@@ -94,15 +89,10 @@ public final class XmlValidationApplication {
         @ArgGroup(exclusive = true, multiplicity = "1", heading = "Input source:%n")
         private InputSourceOptions inputSource;
 
-        @Option(
-                names = "--file-extensions",
-                split = "[,\\s]+",
-                description = "File extensions to discover when scanning directories or file lists; a leading period is optional. Defaults to .xml, and also includes an inline rule extension when one is provided.")
+        @Option(names = "--file-extensions", split = "[,\\s]+", description = "File extensions to discover when scanning directories or file lists; a leading period is optional. Defaults to .xml, and also includes an inline rule extension when one is provided.")
         private List<String> fileExtensions = new ArrayList<>();
 
-        @Option(
-                names = "--config",
-                description = "Optional path to a TOML validator config file containing schema aliases and xml-model rules")
+        @Option(names = "--config", description = "Optional path to a TOML validator config file containing schema aliases and xml-model rules")
         private Path configFile;
 
         @ArgGroup(exclusive = false, multiplicity = "0..1", heading = "Inline xml-model rule options:%n")
@@ -125,10 +115,14 @@ public final class XmlValidationApplication {
         @Option(names = "--plan", description = "Print the resolved validation plan without running validation")
         private boolean plan;
 
+        @Option(names = "--check-schematron-schema", description = "Run SchXslt assembled-schema checks before validating documents that use Schematron")
+        private boolean checkSchematronSchema;
+
         @Option(names = "--format", description = "Output format: ${COMPLETION-CANDIDATES}")
         private OutputFormat format;
 
-        @Option(names = { "-v", "--verbose" }, description = "Print progress information and successful validation summaries")
+        @Option(names = { "-v",
+                "--verbose" }, description = "Print progress information and successful validation summaries")
         private boolean verbose;
 
         private PrintStream output;
@@ -178,6 +172,7 @@ public final class XmlValidationApplication {
             XmlValidationApplication application = new XmlValidationApplication(
                     config.schemaAliases(),
                     xmlModelRules,
+                    checkSchematronSchema,
                     verbose,
                     format,
                     output,
@@ -207,6 +202,7 @@ public final class XmlValidationApplication {
                         arguments.fileExtensions(),
                         arguments.jobs(),
                         arguments.failFast(),
+                        checkSchematronSchema,
                         config.schemaAliases().size(),
                         ruleDescriptions,
                         normalizedFiles));
@@ -218,6 +214,7 @@ public final class XmlValidationApplication {
             output.printf("File extensions: %s%n", String.join(", ", arguments.fileExtensions()));
             output.printf("Jobs: %d%n", arguments.jobs());
             output.printf("Fail fast: %s%n", arguments.failFast());
+            output.printf("Check Schematron schema: %s%n", checkSchematronSchema);
             output.printf("Schema aliases: %d%n", config.schemaAliases().size());
             output.printf("Rules (%d):%n", ruleDescriptions.size());
             for (String ruleDescription : ruleDescriptions) {
@@ -248,7 +245,8 @@ public final class XmlValidationApplication {
         }
 
         private static final class InputSourceOptions {
-            @Option(names = { "-d", "--directory" }, description = "Directory containing matching files to validate recursively")
+            @Option(names = { "-d",
+                    "--directory" }, description = "Directory containing matching files to validate recursively")
             private Path directory;
 
             @Option(names = "--files-from", description = "Read a newline-delimited file list from PATH, or use - to read from standard input")

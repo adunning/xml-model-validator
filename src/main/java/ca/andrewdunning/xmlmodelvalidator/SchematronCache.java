@@ -52,10 +52,14 @@ final class SchematronCache {
     private final RemoteSchemaCache remoteSchemaCache;
 
     SchematronCache(Processor processor) {
+        this(processor, false);
+    }
+
+    SchematronCache(Processor processor, boolean checkSchematronSchema) {
         this.processor = processor;
         this.preparedSchemas = new HashMap<>();
         this.validators = new HashMap<>();
-        this.transpiler = compileTranspiler(processor);
+        this.transpiler = compileTranspiler(processor, checkSchematronSchema);
         this.remoteSchemaCache = new RemoteSchemaCache();
     }
 
@@ -231,16 +235,23 @@ final class SchematronCache {
         if (validators.containsKey(cacheKey)) {
             return validators.get(cacheKey);
         }
-        XdmNode schematron = processor.newDocumentBuilder().build(new StreamSource(normalizedSchemaPath.toFile()));
-        XdmDestination stylesheetDestination = new XdmDestination();
-        Xslt30Transformer transformer = transpiler.load30();
-        transformer.setStylesheetParameters(
-                Map.of(new QName(SCHXSLT_NS, "phase"), XdmValue.makeValue(normalizedPhase)));
-        transformer.applyTemplates(schematron.asSource(), stylesheetDestination);
+        try {
+            XdmNode schematron = processor.newDocumentBuilder().build(new StreamSource(normalizedSchemaPath.toFile()));
+            XdmDestination stylesheetDestination = new XdmDestination();
+            Xslt30Transformer transformer = transpiler.load30();
+            transformer.setStylesheetParameters(
+                    Map.of(new QName(SCHXSLT_NS, "phase"), XdmValue.makeValue(normalizedPhase)));
+            transformer.applyTemplates(schematron.asSource(), stylesheetDestination);
 
-        XsltExecutable validator = processor.newXsltCompiler().compile(stylesheetDestination.getXdmNode().asSource());
-        validators.put(cacheKey, validator);
-        return validator;
+            XsltExecutable validator = processor.newXsltCompiler()
+                    .compile(stylesheetDestination.getXdmNode().asSource());
+            validators.put(cacheKey, validator);
+            return validator;
+        } catch (SaxonApiException exception) {
+            throw new IllegalArgumentException(
+                    "Invalid Schematron schema " + normalizedSchemaPath + ": " + exception.getMessage(),
+                    exception);
+        }
     }
 
     /**
@@ -266,9 +277,12 @@ final class SchematronCache {
         return phaseDestination.getXdmNode().getStringValue();
     }
 
-    private static XsltExecutable compileTranspiler(Processor processor) {
+    private static XsltExecutable compileTranspiler(Processor processor, boolean checkSchematronSchema) {
         try {
             XsltCompiler compiler = processor.newXsltCompiler();
+            compiler.setParameter(
+                    new QName(SCHXSLT_NS, "check-assembled-schema"),
+                    XdmValue.makeValue(checkSchematronSchema));
             try (InputStream stream = SchematronCache.class.getClassLoader()
                     .getResourceAsStream("content/transpile.xsl")) {
                 if (stream == null) {

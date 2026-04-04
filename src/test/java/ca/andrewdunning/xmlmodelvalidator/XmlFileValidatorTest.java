@@ -101,6 +101,30 @@ final class XmlFileValidatorTest {
   }
 
   @Test
+  void rejectsInvalidSchematronSchemaWhenStrictChecksAreEnabled() throws Exception {
+    write("rules.sch", """
+        <schema xmlns="http://purl.oclc.org/dsdl/schematron" queryBinding="xslt2">
+          <phase id="broken">
+            <active pattern="missing-pattern"/>
+          </phase>
+        </schema>
+        """);
+    Path xml = write("document.xml", """
+        <?xml version="1.0"?>
+        <?xml-model href="rules.sch" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+        <root/>
+        """);
+
+    ValidationResult result = validator(true).validate(xml);
+
+    assertFalse(result.ok(), "Expected strict Schematron schema checks to fail invalid schemas");
+    assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("Invalid Schematron schema")),
+        "Expected the invalid-schema prefix to be reported");
+    assertTrue(result.issues().stream().noneMatch(issue -> issue.message().contains("Validation error:")),
+        "Expected strict schema failures to be reported directly");
+  }
+
+  @Test
   void cachesSchematronLocationXPathAcrossRepeatedValidations() throws Exception {
     write("rules.sch", """
         <schema xmlns="http://purl.oclc.org/dsdl/schematron" queryBinding="xslt2">
@@ -127,8 +151,9 @@ final class XmlFileValidatorTest {
 
   @Test
   void honorsAnyPhaseBySelectingPhaseFromDocument() throws Exception {
-    // phase="#ANY" on an xml-model PI means the schema's sch:phase/@when expressions
-    // are evaluated against the document to pick the effective phase dynamically.
+    // phase="#ANY" on an xml-model PI means the schema's sch:phase/@when
+    // expressions are evaluated against the document to pick the effective phase
+    // dynamically.
     write("rules.sch", """
         <schema xmlns="http://purl.oclc.org/dsdl/schematron" queryBinding="xslt2">
           <phase id="strict" when="//root/@mode = 'strict'">
@@ -215,9 +240,9 @@ final class XmlFileValidatorTest {
     ValidationResult result = validator().validate(xml);
 
     assertFalse(result.ok(), "Expected an unsupported queryBinding to fail validation");
-    assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("Unsupported Schematron queryBinding")));
+    assertTrue(
+        result.issues().stream().anyMatch(issue -> issue.message().contains("Unsupported Schematron queryBinding")));
   }
-
 
   @Test
   void validatesEmbeddedSchematronInRelaxNgSchema() throws Exception {
@@ -348,8 +373,8 @@ final class XmlFileValidatorTest {
         || issue.message().toLowerCase().contains("well-formed")),
         "Expected a parser-level XML syntax error from schema validation");
     assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("`")
-      && !issue.message().contains("\"")),
-      "Expected malformed XML messages to format quoted tokens with backticks");
+        && !issue.message().contains("\"")),
+        "Expected malformed XML messages to format quoted tokens with backticks");
     assertTrue(result.issues().stream().anyMatch(issue -> issue.line() != null),
         "Expected malformed XML diagnostics to include a source line");
     assertTrue(result.issues().stream().noneMatch(issue -> issue.message().contains("Validation error:")),
@@ -383,7 +408,8 @@ final class XmlFileValidatorTest {
                 temporaryDirectory.resolve("styles/schema.rng").toString(),
                 ValidationSupport.RELAXNG_NS,
                 null,
-                null))))).validate(xml);
+                null)))))
+        .validate(xml);
 
     assertTrue(result.ok(), "Expected fallback xml-model rule to validate the file");
     assertTrue(result.issues().isEmpty(), "Expected no validation issues from the fallback rule");
@@ -432,7 +458,8 @@ final class XmlFileValidatorTest {
                 temporaryDirectory.resolve("styles/targeted.rng").toString(),
                 ValidationSupport.RELAXNG_NS,
                 null,
-                null))))).validate(xml);
+                null)))))
+        .validate(xml);
 
     assertTrue(result.ok(), "Expected the directory-specific fallback rule to win");
     assertTrue(result.issues().isEmpty(), "Expected the more specific fallback rule to validate cleanly");
@@ -464,7 +491,7 @@ final class XmlFileValidatorTest {
                 ValidationSupport.RELAXNG_NS,
                 null,
                 null)))))
-            .validate(xml);
+        .validate(xml);
 
     assertFalse(result.ok());
     assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("Ambiguous xml-model rules")));
@@ -514,8 +541,8 @@ final class XmlFileValidatorTest {
         new XmlModelRule(
             temporaryDirectory.resolve("styles"),
             ".csl",
-                XmlModelRuleMode.REPLACE,
-                List.of(
+            XmlModelRuleMode.REPLACE,
+            List.of(
                 new XmlModelEntry(
                     temporaryDirectory.resolve("styles/replacement.rng").toString(),
                     ValidationSupport.RELAXNG_NS,
@@ -525,7 +552,8 @@ final class XmlFileValidatorTest {
                     temporaryDirectory.resolve("styles/replacement.sch").toString(),
                     ValidationSupport.SCHEMATRON_NS,
                     null,
-                    null))))).validate(xml);
+                    null)))))
+        .validate(xml);
 
     assertFalse(result.ok(), "Expected replacement rule to override inline xml-model declarations");
     assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("child")),
@@ -550,21 +578,32 @@ final class XmlFileValidatorTest {
                 "missing.rng",
                 ValidationSupport.RELAXNG_NS,
                 null,
-                null))))).validate(xml);
+                null)))))
+        .validate(xml);
 
     assertFalse(result.ok(), "Expected missing configured schema to fail validation");
-    assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains("Could not resolve schema reference 'missing.rng'")));
-    assertTrue(result.issues().stream().anyMatch(issue -> issue.message().contains(temporaryDirectory.resolve("styles").toString())));
+    assertTrue(result.issues().stream()
+        .anyMatch(issue -> issue.message().contains("Could not resolve schema reference 'missing.rng'")));
+    assertTrue(result.issues().stream()
+        .anyMatch(issue -> issue.message().contains(temporaryDirectory.resolve("styles").toString())));
     assertTrue(result.issues().stream().noneMatch(issue -> issue.message().contains("Validation error:")),
         "Expected schema resolution failures to be reported directly");
   }
 
   private XmlFileValidator validator() {
-    return validator(List.of());
+    return validator(List.of(), false);
+  }
+
+  private XmlFileValidator validator(boolean checkSchematronSchema) {
+    return validator(List.of(), checkSchematronSchema);
   }
 
   private XmlFileValidator validator(List<XmlModelRule> xmlModelRules) {
-    return new XmlFileValidator(Map.of(), xmlModelRules);
+    return validator(xmlModelRules, false);
+  }
+
+  private XmlFileValidator validator(List<XmlModelRule> xmlModelRules, boolean checkSchematronSchema) {
+    return new XmlFileValidator(Map.of(), xmlModelRules, checkSchematronSchema);
   }
 
   private Path write(String relativePath, String content) throws IOException {

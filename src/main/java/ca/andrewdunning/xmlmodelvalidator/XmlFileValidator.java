@@ -44,15 +44,23 @@ final class XmlFileValidator {
     private final List<XmlModelRule> xmlModelRules;
 
     XmlFileValidator(Map<String, Path> schemaAliases) {
-        this(schemaAliases, List.of());
+        this(schemaAliases, List.of(), false);
     }
 
     XmlFileValidator(Map<String, Path> schemaAliases, List<XmlModelRule> xmlModelRules) {
+        this(schemaAliases, xmlModelRules, false);
+    }
+
+    XmlFileValidator(
+            Map<String, Path> schemaAliases,
+            List<XmlModelRule> xmlModelRules,
+            boolean checkSchematronSchema) {
         this.processor = new Processor(false);
         this.svrlXPathCompiler = processor.newXPathCompiler();
         this.svrlXPathCompiler.declareNamespace("svrl", ValidationSupport.SVRL_NS);
         try {
-            this.svrlIssueSelector = svrlXPathCompiler.compile("//svrl:failed-assert | //svrl:successful-report");
+            this.svrlIssueSelector = svrlXPathCompiler.compile(
+                    "//svrl:failed-assert | //svrl:successful-report | //svrl:error");
             this.svrlNamespaceSelector = svrlXPathCompiler
                     .compile("/svrl:schematron-output/svrl:ns-prefix-in-attribute-values");
         } catch (SaxonApiException exception) {
@@ -60,7 +68,7 @@ final class XmlFileValidator {
         }
         this.locationXPathCache = new ConcurrentHashMap<>();
         this.xmlDocumentScanner = new XmlDocumentScanner();
-        this.schematronCache = new SchematronCache(processor);
+        this.schematronCache = new SchematronCache(processor, checkSchematronSchema);
         this.jingValidator = new JingValidator();
         this.schemaResolver = new SchemaResolver(schemaAliases, new RemoteSchemaCache());
         this.xsdValidator = new XsdValidator(schemaResolver);
