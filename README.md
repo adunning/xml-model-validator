@@ -159,7 +159,7 @@ or remove it so schema-only changes also trigger validation.
 Version tag semantics:
 
 - `@v2` is a floating major tag that tracks the latest `2.x.y` release.
-- `@v2.2.0` is an immutable exact release tag.
+- `@v2.2.1` is an immutable exact release tag.
 - This repository publishes releases from `vX.Y.Z` tags and then updates the
   matching major tag (`vX`) automatically.
 
@@ -514,7 +514,7 @@ The GitHub Action sets up Java internally and runs the validator with
 
 On a cold runner, the composite action first attempts to download
 `xml-model-validator.jar` from the GitHub Release that matches the action ref
-(for example, `@v2` or `@v2.2.0`). If the release asset is not available, it
+(for example, `@v2` or `@v2.2.1`). If the release asset is not available, it
 falls back to building the runnable jar from source.
 
 The built jar is cached under `~/.cache/xml-model-validator/jar`, and its cache
@@ -641,7 +641,7 @@ java -jar build/libs/xml-model-validator.jar --plan --format json --directory pa
 Verify a published release artifact:
 
 ```bash
-VERSION=v2.2.0 # replace with the release tag you want to verify
+VERSION=v2.2.1 # replace with the release tag you want to verify
 curl -LO "https://github.com/adunning/xml-model-validator/releases/download/${VERSION}/xml-model-validator.jar"
 curl -LO "https://github.com/adunning/xml-model-validator/releases/download/${VERSION}/xml-model-validator.jar.sha256"
 shasum -a 256 -c xml-model-validator.jar.sha256

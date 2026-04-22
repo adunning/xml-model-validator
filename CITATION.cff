@@ -6,8 +6,8 @@ authors:
     - family-names: "Dunning"
       given-names: "Andrew N. J."
       orcid: "https://orcid.org/0000-0003-0464-5036"
-version: "2.2.0"
-date-released: 2026-04-04
+version: "2.2.1"
+date-released: 2026-04-22
 license: "MIT"
 repository-code: "https://github.com/adunning/xml-model-validator"
 url: "https://github.com/adunning/xml-model-validator"
