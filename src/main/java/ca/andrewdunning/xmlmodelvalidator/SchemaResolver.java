@@ -9,11 +9,11 @@ import java.util.Map;
 /** Resolves schema references from aliases, local paths, and remote URLs into concrete files on disk. */
 final class SchemaResolver {
     private final Map<String, Path> schemaAliases;
-    private final RemoteSchemaCache remoteSchemaCache;
+    private final RemoteSchemaFetcher remoteSchemaFetcher;
 
-    SchemaResolver(Map<String, Path> schemaAliases, RemoteSchemaCache remoteSchemaCache) {
+    SchemaResolver(Map<String, Path> schemaAliases, RemoteSchemaFetcher remoteSchemaFetcher) {
         this.schemaAliases = schemaAliases;
-        this.remoteSchemaCache = remoteSchemaCache;
+        this.remoteSchemaFetcher = remoteSchemaFetcher;
     }
 
     Path resolve(String href, Path baseDirectory) {
@@ -86,8 +86,12 @@ final class SchemaResolver {
 
     private ResolvedSchemaSource resolveRemote(String href) {
         try {
-            return new ResolvedSchemaSource(remoteSchemaCache.fetch(href), href);
-        } catch (IOException | InterruptedException exception) {
+            return new ResolvedSchemaSource(remoteSchemaFetcher.fetch(href), href);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalArgumentException(
+                    "Could not fetch remote schema URL '" + href + "': " + exception.getMessage(), exception);
+        } catch (IOException exception) {
             throw new IllegalArgumentException(
                     "Could not fetch remote schema URL '" + href + "': " + exception.getMessage(), exception);
         }

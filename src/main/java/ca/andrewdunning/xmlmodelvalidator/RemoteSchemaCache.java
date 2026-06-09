@@ -8,13 +8,14 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.HexFormat;
 
 /** Downloads remote schemas once and stores them in a stable local cache directory. */
-final class RemoteSchemaCache {
+final class RemoteSchemaCache implements RemoteSchemaFetcher {
     private final HttpClient client;
 
     RemoteSchemaCache() {
@@ -25,7 +26,8 @@ final class RemoteSchemaCache {
     }
 
     /** Fetches a remote schema into the cache if it is not already present. */
-    synchronized Path fetch(String url) throws IOException, InterruptedException {
+    @Override
+    public synchronized Path fetch(String url) throws IOException, InterruptedException {
         Files.createDirectories(ValidationSupport.SCHEMA_DOWNLOAD_CACHE_DIR);
         URI uri = URI.create(url);
         String filename = cacheFilename(uri);
@@ -44,8 +46,27 @@ final class RemoteSchemaCache {
             throw new IOException("Could not fetch schema " + url + ": HTTP " + response.statusCode());
         }
 
-        Files.write(destination, response.body());
+        writeCacheFile(destination, response.body());
         return destination;
+    }
+
+    private static void writeCacheFile(Path destination, byte[] body) throws IOException {
+        Path temporaryFile = Files.createTempFile(
+                destination.getParent(), destination.getFileName().toString(), ".tmp");
+        try {
+            Files.write(temporaryFile, body);
+            try {
+                Files.move(
+                        temporaryFile,
+                        destination,
+                        StandardCopyOption.ATOMIC_MOVE,
+                        StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException exception) {
+                Files.move(temporaryFile, destination, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } finally {
+            Files.deleteIfExists(temporaryFile);
+        }
     }
 
     private static String cacheFilename(URI uri) {

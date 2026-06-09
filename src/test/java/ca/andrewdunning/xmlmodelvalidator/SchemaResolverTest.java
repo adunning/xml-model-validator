@@ -47,6 +47,25 @@ final class SchemaResolverTest {
         assertEquals(imported.toUri().toString(), resolved.systemId());
     }
 
+    @Test
+    void restoresInterruptStatusWhenRemoteFetchIsInterrupted() {
+        SchemaResolver resolver = new SchemaResolver(Map.of(), url -> {
+            throw new InterruptedException("cancelled");
+        });
+
+        try {
+            IllegalArgumentException exception = assertThrows(
+                    IllegalArgumentException.class,
+                    () -> resolver.resolve("https://example.com/schema.rng", temporaryDirectory));
+
+            assertTrue(Thread.currentThread().isInterrupted());
+            assertTrue(exception.getMessage().contains("Could not fetch remote schema URL"));
+            assertTrue(exception.getCause() instanceof InterruptedException);
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
     @ParameterizedTest
     @MethodSource("failingResolutionScenarios")
     void reportsContextForResolutionFailures(

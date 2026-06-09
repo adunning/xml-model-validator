@@ -137,13 +137,13 @@ final class XmlFileValidator {
      */
     private List<ResolvedSchema> resolveSchemas(List<XmlModelEntry> entries, Path file, SchemaKind schemaKind) {
         List<ResolvedSchema> schemas = new ArrayList<>();
-        Set<String> seen = new HashSet<>();
+        Set<SchemaValidationKey> seen = new HashSet<>();
         for (XmlModelEntry entry : entries) {
             if (!entry.matches(schemaKind)) {
                 continue;
             }
             ResolvedSchemaSource resolved = schemaResolver.resolveSource(entry.href(), file.getParent());
-            String dedupeKey = resolved.systemId() + "|" + entry.phase();
+            SchemaValidationKey dedupeKey = new SchemaValidationKey(resolved.systemId(), entry.phase());
             if (seen.add(dedupeKey)) {
                 schemas.add(new ResolvedSchema(resolved, entry));
             }
@@ -350,4 +350,7 @@ final class XmlFileValidator {
 
     /** Associates a resolved schema file with the xml-model entry that requested it. */
     private record ResolvedSchema(ResolvedSchemaSource source, XmlModelEntry entry) {}
+
+    /** Identifies a schema validation request independently of xml-model declaration spelling. */
+    private record SchemaValidationKey(String systemId, String phase) {}
 }

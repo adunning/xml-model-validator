@@ -60,7 +60,7 @@ final class SchematronCache {
         this.processor = processor;
         this.preparedSchemas = new HashMap<>();
         this.validators = new HashMap<>();
-        this.transpiler = compileTranspiler(processor, checkSchematronSchema, severityThreshold);
+        this.transpiler = compileTranspiler(checkSchematronSchema, severityThreshold);
         this.remoteSchemaCache = new RemoteSchemaCache();
     }
 
@@ -240,9 +240,8 @@ final class SchematronCache {
                     Map.of(new QName(SCHXSLT_NS, "phase"), XdmValue.makeValue(normalizedPhase)));
             transformer.applyTemplates(schematron.asSource(), stylesheetDestination);
 
-            XsltExecutable validator = processor
-                    .newXsltCompiler()
-                    .compile(stylesheetDestination.getXdmNode().asSource());
+            XsltExecutable validator =
+                    newXsltCompiler().compile(stylesheetDestination.getXdmNode().asSource());
             validators.put(cacheKey, validator);
             return validator;
         } catch (SaxonApiException exception) {
@@ -266,18 +265,16 @@ final class SchematronCache {
         phaseSelectorGenerator.applyTemplates(schematron.asSource(), phaseSelectorDestination);
 
         XdmDestination phaseDestination = new XdmDestination();
-        Xslt30Transformer phaseSelector = processor
-                .newXsltCompiler()
+        Xslt30Transformer phaseSelector = newXsltCompiler()
                 .compile(phaseSelectorDestination.getXdmNode().asSource())
                 .load30();
         phaseSelector.applyTemplates(documentNode.asSource(), phaseDestination);
         return phaseDestination.getXdmNode().getStringValue();
     }
 
-    private static XsltExecutable compileTranspiler(
-            Processor processor, boolean checkSchematronSchema, SchematronSeverityLevel severityThreshold) {
+    private XsltExecutable compileTranspiler(boolean checkSchematronSchema, SchematronSeverityLevel severityThreshold) {
         try {
-            XsltCompiler compiler = processor.newXsltCompiler();
+            XsltCompiler compiler = newXsltCompiler();
             compiler.setParameter(
                     new QName(SCHXSLT_NS, "check-assembled-schema"), XdmValue.makeValue(checkSchematronSchema));
             compiler.setParameter(
@@ -292,6 +289,10 @@ final class SchematronCache {
         } catch (IOException | SaxonApiException exception) {
             throw new IllegalStateException("Could not compile SchXslt2 transpiler", exception);
         }
+    }
+
+    private XsltCompiler newXsltCompiler() {
+        return processor.newXsltCompiler();
     }
 
     private static void ensureSupportedQueryBinding(Document document, Path schemaPath) throws IOException {

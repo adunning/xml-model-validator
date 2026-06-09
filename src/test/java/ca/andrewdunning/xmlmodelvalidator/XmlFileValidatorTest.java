@@ -101,6 +101,35 @@ final class XmlFileValidatorTest {
     }
 
     @Test
+    void validatesDuplicateSchemaAndPhaseOnlyOnce() throws Exception {
+        write("rules.sch", """
+        <schema xmlns="http://purl.oclc.org/dsdl/schematron" queryBinding="xslt2">
+          <pattern>
+            <rule context="root">
+              <assert test="child">root must have a child</assert>
+            </rule>
+          </pattern>
+        </schema>
+        """);
+        Path xml = write("document.xml", """
+        <?xml version="1.0"?>
+        <?xml-model href="rules.sch" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+        <?xml-model href="rules.sch" schematypens="http://purl.oclc.org/dsdl/schematron"?>
+        <root/>
+        """);
+
+        ValidationResult result = validator().validate(xml);
+
+        assertFalse(result.ok(), "Expected Schematron validation to fail");
+        assertEquals(
+                1,
+                result.issues().stream()
+                        .filter(issue -> issue.message().contains("root must have a child"))
+                        .count(),
+                "Expected duplicate xml-model entries for the same schema and phase to run once");
+    }
+
+    @Test
     void appliesSchematronSeverityThreshold() throws Exception {
         write("rules.sch", """
         <schema xmlns="http://purl.oclc.org/dsdl/schematron" queryBinding="xslt2">
