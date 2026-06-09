@@ -98,7 +98,7 @@ runs:
       uses: actions/setup-java@v5
       with:
         distribution: temurin
-        java-version: "25"
+        java-version: "26"
     - name: Set Up Gradle
       if: steps.restore-jar-cache.outputs.cache-hit != 'true'
       uses: gradle/actions/setup-gradle@v6
