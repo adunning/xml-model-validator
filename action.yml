@@ -80,7 +80,7 @@ runs:
   steps:
     - name: Restore Validator Runtime Cache
       id: restore-runtime-cache
-      uses: actions/cache/restore@v5
+      uses: actions/cache/restore@v6
       with:
         path: |
           ~/.cache/xml-model-validator/schema-downloads
@@ -90,7 +90,7 @@ runs:
           xml-model-validator-runtime-${{ runner.os }}-
     - name: Restore Validator JAR Cache
       id: restore-jar-cache
-      uses: actions/cache/restore@v5
+      uses: actions/cache/restore@v6
       with:
         path: ~/.cache/xml-model-validator/jar
         key: xml-model-validator-jar-${{ runner.os }}-${{ github.action_ref }}
@@ -132,13 +132,13 @@ runs:
         bash "${{ github.action_path }}/entrypoint.sh"
     - name: Save Validator JAR Cache
       if: always() && steps.restore-jar-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v5
+      uses: actions/cache/save@v6
       with:
         path: ~/.cache/xml-model-validator/jar
         key: xml-model-validator-jar-${{ runner.os }}-${{ github.action_ref }}
     - name: Save Validator Runtime Cache
       if: always() && steps.restore-runtime-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v5
+      uses: actions/cache/save@v6
       with:
         path: |
           ~/.cache/xml-model-validator/schema-downloads
