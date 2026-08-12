@@ -1,6 +1,7 @@
 # This is a Gradle generated file for dependency locking.
 # Manual edits can break the build and are not advised.
 # This file is expected to be part of source control.
+# To regenerate this file, run: ./gradlew :dependencies --write-locks
 info.picocli:picocli:4.7.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 isorelax:isorelax:20030108=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 name.dmaus.schxslt:schxslt2:1.10.3=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
