@@ -95,7 +95,7 @@ runs:
         path: ~/.cache/xml-model-validator/jar
         key: xml-model-validator-jar-${{ runner.os }}-${{ github.action_ref }}
     - name: Set Up Java
-      uses: actions/setup-java@v5
+      uses: actions/setup-java@v6
       with:
         distribution: temurin
         java-version: "25"
